@@ -1,0 +1,12 @@
+services:
+  bot:
+    build: .
+    env_file: .env
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+      - ./media:/app/media
+    environment:
+      DATABASE_PATH: /app/data/database.db
+      MEDIA_TEMP_DIR: /app/media/temp
+      FFMPEG_PATH: ffmpeg

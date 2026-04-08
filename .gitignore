@@ -1,0 +1,36 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Environments
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Secrets
+.env
+
+# Databases and local runtime data
+database/*.db
+database/*.sqlite*
+*.db
+*.sqlite*
+
+# Temp/media cache
+media/temp/
+
+# Deployment archives
+*.tgz
+*.tar.gz
+
+# Keep legacy backup out of VCS
+previous_tg_bot/
+
+# OS
+.DS_Store
+Thumbs.db
