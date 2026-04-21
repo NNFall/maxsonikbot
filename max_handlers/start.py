@@ -181,9 +181,9 @@ async def cb_menu_main(event: MessageCallback, context: BaseContext) -> None:
     await context.clear()
     chat_id = _chat_id(event)
     if chat_id is None:
-        await event.answer(notification="Сообщение не найдено")
+        await event.answer()
         return
-    await event.answer(notification="Открываю меню")
+    await event.answer()
     await _send_main_menu(event.bot, chat_id)
 
 
@@ -191,9 +191,9 @@ async def cb_menu_main(event: MessageCallback, context: BaseContext) -> None:
 async def cb_help(event: MessageCallback) -> None:
     chat_id = _chat_id(event)
     if chat_id is None:
-        await event.answer(notification="Сообщение не найдено")
+        await event.answer()
         return
-    await event.answer(notification="Открываю помощь")
+    await event.answer()
     await event.bot.send_message(
         chat_id=chat_id,
         text=(
@@ -210,5 +210,5 @@ async def cb_help(event: MessageCallback) -> None:
 
 @router.message_callback(F.callback.payload == "menu:invite")
 async def cb_invite(event: MessageCallback) -> None:
-    await event.answer(notification="Готово")
+    await event.answer()
     await _send_invite(event)

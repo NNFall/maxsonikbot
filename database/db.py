@@ -119,6 +119,7 @@ async def init_db(db_path: str) -> None:
                 last_type TEXT,
                 last_video_id INTEGER,
                 last_photo_id INTEGER,
+                last_push_variant_idx INTEGER,
                 updated_at TEXT NOT NULL
             )
             '''
@@ -151,6 +152,8 @@ async def ensure_schema(db_path: str) -> None:
             await db.execute('ALTER TABLE mailer_state ADD COLUMN last_video_id INTEGER')
         if 'last_photo_id' not in cols:
             await db.execute('ALTER TABLE mailer_state ADD COLUMN last_photo_id INTEGER')
+        if 'last_push_variant_idx' not in cols:
+            await db.execute('ALTER TABLE mailer_state ADD COLUMN last_push_variant_idx INTEGER')
         await db.commit()
 
 

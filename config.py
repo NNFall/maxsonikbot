@@ -45,6 +45,9 @@ class Config:
     tarot_background_path: str
     tarot_layout_path: str
     tarot_progress_sticker_id: str
+    tarot_progress_sticker_code: str
+    tarot_progress_sticker_url: str
+    tarot_progress_text: str
     ref_bonus: int
     tarot_spread_cost: int
     effect_cost: int
@@ -106,6 +109,9 @@ def load_config() -> Config:
         tarot_background_path=_get_env('TAROT_BACKGROUND_PATH', 'media/tarot/backgrounds/main.png') or 'media/tarot/backgrounds/main.png',
         tarot_layout_path=_get_env('TAROT_LAYOUT_PATH', 'media/tarot/layout.json') or 'media/tarot/layout.json',
         tarot_progress_sticker_id=_get_env('TAROT_PROGRESS_STICKER_ID', '') or '',
+        tarot_progress_sticker_code=_get_env('TAROT_PROGRESS_STICKER_CODE', '') or '',
+        tarot_progress_sticker_url=_get_env('TAROT_PROGRESS_STICKER_URL', '') or '',
+        tarot_progress_text=_get_env('TAROT_PROGRESS_TEXT', '✨ Выполняю расклад, смотрю ваши карты...') or '✨ Выполняю расклад, смотрю ваши карты...',
         ref_bonus=int(_get_env('REF_BONUS', '20') or '20'),
         tarot_spread_cost=int(_get_env('TAROT_SPREAD_COST', '1') or '1'),
         effect_cost=int(_get_env('EFFECT_COST', '10') or '10'),

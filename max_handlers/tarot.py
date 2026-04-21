@@ -245,7 +245,6 @@ async def _process_question(event: MessageCreated, context: BaseContext) -> None
     ):
         cards = draw_cards(deck, count=1)
         cards_payload = _serialize_cards(cards)
-        await event.bot.send_message(chat_id=chat_id, text="🔮 Открываю первую карту...")
         ok, payload, first_text = await run_teaser_tarot_reading(
             event.bot,
             user_id=uid,
@@ -299,7 +298,6 @@ async def _process_question(event: MessageCreated, context: BaseContext) -> None
     cards = draw_cards(deck, count=3)
     cards_payload = _serialize_cards(cards)
     await context.update_data(tarot_cards=cards_payload)
-    await event.bot.send_message(chat_id=chat_id, text="🔮 Выполняю полный расклад...")
     ok = await run_paid_tarot_reading(
         event.bot,
         user_id=uid,
@@ -321,7 +319,7 @@ async def _open_full_from_pending(event: MessageCallback, context: BaseContext) 
     chat_id = _chat_id_from_event(event)
     username = _username_from_event(event)
     if uid is None or chat_id is None:
-        await event.answer(notification="Сообщение не найдено")
+        await event.answer()
         return
 
     data = await context.get_data()
@@ -346,13 +344,13 @@ async def _open_full_from_pending(event: MessageCallback, context: BaseContext) 
             await context.update_data(pending_action=json.dumps(pending_action))
 
     if not pending_action or pending_action.get("type") != "tarot_full":
-        await event.answer(notification="Нет активного расклада")
+        await event.answer()
         await event.bot.send_message(chat_id=chat_id, text="Не найден активный расклад. Задайте вопрос заново.")
         return
 
     balance = await crud.get_balance(config.database_path, uid)
     if balance < config.tarot_spread_cost:
-        await event.answer(notification="Недостаточно раскладов")
+        await event.answer()
         await event.bot.send_message(
             chat_id=chat_id,
             text=f"{paywall_text()}\n\n{_build_inactive_balance_text(balance)}",
@@ -360,8 +358,7 @@ async def _open_full_from_pending(event: MessageCallback, context: BaseContext) 
         )
         return
 
-    await event.answer(notification="Открываю полный расклад")
-    await event.bot.send_message(chat_id=chat_id, text="🔮 Продолжаю расклад...")
+    await event.answer()
 
     question = pending_action.get("question") or ""
     first_card = pending_action.get("first_card")
@@ -411,9 +408,9 @@ async def cmd_ask(event: MessageCreated, context: BaseContext) -> None:
 async def cb_menu_ask(event: MessageCallback, context: BaseContext) -> None:
     chat_id = _chat_id_from_event(event)
     if chat_id is None:
-        await event.answer(notification="Сообщение не найдено")
+        await event.answer()
         return
-    await event.answer(notification="Жду ваш вопрос")
+    await event.answer()
     await context.clear()
     await _send_ask_prompt(event.bot, chat_id)
     await context.set_state(TarotState.waiting_question)

@@ -234,6 +234,11 @@ async def _handle_pending_action(tx_id: int, user_id: int, chat_id: int, bot) ->
     if not question:
         return action_type
 
+    await bot.send_message(
+        chat_id=chat_id,
+        text="✅ Оплата прошла успешно.\nПродолжаю расклад...",
+    )
+
     ok = False
     if isinstance(first_card, dict):
         ok = await run_tarot_continuation(
@@ -339,12 +344,12 @@ async def _start_yoo_payment(event: MessageCallback, context: BaseContext, plan_
     chat_id = _chat_id_from_event(event)
     username = _username_from_event(event)
     if user_id is None or chat_id is None:
-        await event.answer(notification="Сообщение не найдено")
+        await event.answer()
         return
 
     lock = _payment_locks.setdefault(user_id, asyncio.Lock())
     if lock.locked():
-        await event.answer(notification="Оплата уже создается")
+        await event.answer()
         await event.bot.send_message(chat_id=chat_id, text="⏳ Оплата уже создается. Подождите пару секунд.")
         return
 
@@ -508,9 +513,9 @@ async def cb_balance(event: MessageCallback) -> None:
     user_id = _user_id_from_event(event)
     chat_id = _chat_id_from_event(event)
     if user_id is None or chat_id is None:
-        await event.answer(notification="Сообщение не найдено")
+        await event.answer()
         return
-    await event.answer(notification="Открываю баланс")
+    await event.answer()
     await _send_balance(event.bot, chat_id, user_id)
 
 
@@ -518,9 +523,9 @@ async def cb_balance(event: MessageCallback) -> None:
 async def cb_choose_subscription(event: MessageCallback) -> None:
     chat_id = _chat_id_from_event(event)
     if chat_id is None:
-        await event.answer(notification="Сообщение не найдено")
+        await event.answer()
         return
-    await event.answer(notification="Выбор тарифа")
+    await event.answer()
     await event.bot.send_message(
         chat_id=chat_id,
         text="Выберите подписку 👇",
@@ -532,7 +537,7 @@ async def cb_choose_subscription(event: MessageCallback) -> None:
 async def cb_choose_yoo(event: MessageCallback, context: BaseContext) -> None:
     payload = event.callback.payload or ""
     plan_id = payload.split(":")[-1]
-    await event.answer(notification="Создаю оплату")
+    await event.answer()
     await _start_yoo_payment(event, context, plan_id)
 
 
@@ -540,9 +545,9 @@ async def cb_choose_yoo(event: MessageCallback, context: BaseContext) -> None:
 async def cb_sub_renew_choose(event: MessageCallback) -> None:
     chat_id = _chat_id_from_event(event)
     if chat_id is None:
-        await event.answer(notification="Сообщение не найдено")
+        await event.answer()
         return
-    await event.answer(notification="Выбор тарифа")
+    await event.answer()
     await event.bot.send_message(
         chat_id=chat_id,
         text="🔄 <b>Обновить подписку</b>\nВыберите тариф для продления:",
@@ -554,7 +559,7 @@ async def cb_sub_renew_choose(event: MessageCallback) -> None:
 async def cb_sub_renew_yoo(event: MessageCallback, context: BaseContext) -> None:
     payload = event.callback.payload or ""
     plan_id = payload.split(":")[-1]
-    await event.answer(notification="Продление подписки")
+    await event.answer()
     await _start_yoo_payment(event, context, plan_id, renew_now=True)
 
 
@@ -564,9 +569,9 @@ async def cb_sub_cancel(event: MessageCallback) -> None:
     chat_id = _chat_id_from_event(event)
     username = _username_from_event(event)
     if user_id is None or chat_id is None:
-        await event.answer(notification="Сообщение не найдено")
+        await event.answer()
         return
-    await event.answer(notification="Подписка отключена")
+    await event.answer()
     await crud.cancel_subscription(config.database_path, user_id)
     sub = await crud.get_subscription(config.database_path, user_id)
     end_date = _format_date(sub["current_period_end"]) if sub else "неизвестно"

@@ -5,12 +5,15 @@ import logging
 import random
 import re
 import uuid
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
 from PIL import Image
+from maxapi.enums.attachment import AttachmentType
 from maxapi.enums.parse_mode import ParseMode
-from maxapi.types import InputMedia
+from maxapi.enums.sender_action import SenderAction
+from maxapi.types import Attachment, InputMedia, StickerAttachmentPayload
 
 from config import load_config
 from database import crud
@@ -34,6 +37,61 @@ class TarotReadingBundle:
 def _plain_text(text: str) -> str:
     cleaned = TAG_RE.sub("", text or "").strip()
     return cleaned.replace("*", "").replace("_", "").replace("`", "")
+
+
+def _extract_mid(send_result) -> str | None:
+    try:
+        return send_result.message.body.mid
+    except Exception:
+        return None
+
+
+async def _start_progress_feedback(bot, chat_id: int, cfg) -> tuple[str | None, str | None]:
+    sticker_mid: str | None = None
+    text_mid: str | None = None
+
+    sticker_code = (cfg.tarot_progress_sticker_code or cfg.tarot_progress_sticker_id or "").strip()
+    sticker_url = (cfg.tarot_progress_sticker_url or "").strip()
+
+    if sticker_code and sticker_url:
+        try:
+            sticker_res = await bot.send_message(
+                chat_id=chat_id,
+                attachments=[
+                    Attachment(
+                        type=AttachmentType.STICKER,
+                        payload=StickerAttachmentPayload(url=sticker_url, code=sticker_code),
+                    )
+                ],
+            )
+            sticker_mid = _extract_mid(sticker_res)
+        except Exception:
+            logger.exception("Failed to send progress sticker chat_id=%s", chat_id)
+    elif (cfg.tarot_progress_sticker_id or "").strip():
+        # In MAX, sticker needs both code and url.
+        logger.debug("Progress sticker skipped: set TAROT_PROGRESS_STICKER_URL for MAX sticker")
+
+    try:
+        progress_res = await bot.send_message(
+            chat_id=chat_id,
+            text=(cfg.tarot_progress_text or "✨ Выполняю расклад, смотрю ваши карты..."),
+        )
+        text_mid = _extract_mid(progress_res)
+    except Exception:
+        logger.exception("Failed to send progress message chat_id=%s", chat_id)
+
+    with suppress(Exception):
+        await bot.send_action(chat_id=chat_id, action=SenderAction.TYPING_ON)
+
+    return sticker_mid, text_mid
+
+
+async def _stop_progress_feedback(bot, sticker_mid: str | None, text_mid: str | None) -> None:
+    for mid in (text_mid, sticker_mid):
+        if not mid:
+            continue
+        with suppress(Exception):
+            await bot.delete_message(message_id=mid)
 
 
 def _serialize_cards(cards: list[DrawnCard]) -> list[dict]:
@@ -75,6 +133,9 @@ async def build_tarot_bundle(
     user_id: int,
     mode: str,
     cards_override: list[DrawnCard] | None = None,
+    *,
+    bot=None,
+    chat_id: int | None = None,
 ) -> TarotReadingBundle:
     cfg = load_config()
     deck = load_deck(cfg.tarot_cards_dir)
@@ -82,7 +143,15 @@ async def build_tarot_bundle(
         raise RuntimeError(f"Not enough cards in TAROT_CARDS_DIR: {cfg.tarot_cards_dir}")
 
     cards = cards_override or draw_cards(deck, count=3)
-    text = await generate_tarot_reading_text(question, cards, mode=mode)
+    sticker_mid: str | None = None
+    text_mid: str | None = None
+    if bot is not None and chat_id is not None:
+        sticker_mid, text_mid = await _start_progress_feedback(bot, chat_id, cfg)
+    try:
+        text = await generate_tarot_reading_text(question, cards, mode=mode)
+    finally:
+        if bot is not None and chat_id is not None:
+            await _stop_progress_feedback(bot, sticker_mid, text_mid)
 
     temp_dir = Path(cfg.media_temp_dir)
     temp_dir.mkdir(parents=True, exist_ok=True)
@@ -117,7 +186,14 @@ async def run_teaser_tarot_reading(
 
     bundle: TarotReadingBundle | None = None
     try:
-        bundle = await build_tarot_bundle(question, user_id, mode="teaser", cards_override=cards_override)
+        bundle = await build_tarot_bundle(
+            question,
+            user_id,
+            mode="teaser",
+            cards_override=cards_override,
+            bot=bot,
+            chat_id=chat_id,
+        )
         await _send_local_image(bot, chat_id, bundle.image_path)
         await _send_markdown_safe(bot, chat_id, bundle.text)
         payload = _serialize_cards(bundle.cards)
@@ -158,7 +234,14 @@ async def run_paid_tarot_reading(
     await crud.update_balance(cfg.database_path, user_id, -cost)
     bundle: TarotReadingBundle | None = None
     try:
-        bundle = await build_tarot_bundle(question, user_id, mode="full", cards_override=cards_override)
+        bundle = await build_tarot_bundle(
+            question,
+            user_id,
+            mode="full",
+            cards_override=cards_override,
+            bot=bot,
+            chat_id=chat_id,
+        )
         await _send_local_image(bot, chat_id, bundle.image_path)
         await _send_markdown_safe(bot, chat_id, bundle.text)
         set_context(
@@ -222,7 +305,11 @@ async def run_tarot_continuation(
 
     try:
         new_cards = _draw_additional_cards(deck, exclude_slug=first_card.card.slug, count=2)
-        text = await generate_tarot_continuation_text(question, first_card, first_text, new_cards)
+        sticker_mid, text_mid = await _start_progress_feedback(bot, chat_id, cfg)
+        try:
+            text = await generate_tarot_continuation_text(question, first_card, first_text, new_cards)
+        finally:
+            await _stop_progress_feedback(bot, sticker_mid, text_mid)
 
         for idx, card in enumerate(new_cards, start=1):
             image_path = temp_dir / f"tarot_cont_{user_id}_{idx}_{uuid.uuid4().hex}.jpg"

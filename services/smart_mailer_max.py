@@ -8,6 +8,7 @@ from typing import Any
 from config import load_config
 from database import crud
 from max_keyboards import mailer_attachments
+from prompts.mailer_push_templates import next_variant
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +46,12 @@ def _progress_text(sent: int, total: int, errors: int) -> str:
     return (
         "⏳ <b>Идет рассылка...</b>\n"
         f"Отправлено: {sent} из {total} ({percent}%)\n"
-        f"Ошибок/Блокировок: {errors}"
+        f"Ошибок/блокировок: {errors}"
     )
+
+
+def _promo_text(body: str, effect_name: str) -> str:
+    return f"{body}\n\n🔮 Расклад: <b>{effect_name}</b>"
 
 
 async def _send_message(bot, recipient_id: int, text: str, attachments=None):
@@ -59,8 +64,7 @@ async def _send_message(bot, recipient_id: int, text: str, attachments=None):
             raise user_error from chat_error
 
 
-async def _send_promo(bot, user_id: int, effect: dict) -> str:
-    text = f"Попробуйте этот расклад! 👇\n<b>{effect['button_name']}</b>"
+async def _send_promo(bot, user_id: int, text: str) -> str:
     try:
         await _send_message(
             bot,
@@ -82,15 +86,20 @@ async def _send_promo(bot, user_id: int, effect: dict) -> str:
         return "failed"
 
 
-async def _send_preview(bot, admin_ids: list[int], effect: dict) -> None:
+async def _build_promo_text(state: dict, effect_name: str) -> tuple[int, str]:
+    template_idx, template_text = next_variant(state.get("last_push_variant_idx"))
+    return template_idx, _promo_text(template_text, effect_name)
+
+
+async def _send_preview(bot, admin_ids: list[int], effect: dict, promo_text: str) -> None:
     preview_text = (
         "⚠️ <b>Внимание!</b> Через 30 минут начнется автоматическая рассылка.\n"
-        f"Эффект: <b>{effect['button_name']}</b>"
+        f"Расклад: <b>{effect['button_name']}</b>"
     )
     for admin_id in admin_ids:
         try:
             await _send_message(bot, admin_id, preview_text)
-            await _send_promo(bot, admin_id, effect)
+            await _send_promo(bot, admin_id, promo_text)
         except Exception:
             continue
 
@@ -145,18 +154,27 @@ async def smart_mailing_loop(bot) -> None:
                     if not effect:
                         await asyncio.sleep(60 * 60)
                         continue
+
+                    template_idx, promo_text = await _build_promo_text(state, effect["button_name"])
                     if admin_ids:
-                        await _send_preview(bot, admin_ids, effect)
+                        await _send_preview(bot, admin_ids, effect, promo_text)
 
                     wait_sec = (next_run_at - datetime.utcnow()).total_seconds()
                     if wait_sec > 0:
                         await asyncio.sleep(wait_sec)
+                else:
+                    template_idx, promo_text = -1, ""
+            else:
+                template_idx, promo_text = -1, ""
 
             if effect is None:
                 effect, next_type = await _choose_next_effect(config, state)
                 if not effect:
                     await asyncio.sleep(60 * 60)
                     continue
+
+            if not promo_text:
+                template_idx, promo_text = await _build_promo_text(state, effect["button_name"])
 
             now_iso = datetime.utcnow().isoformat(timespec="seconds")
             active_ids = await crud.list_active_subscription_user_ids(config.database_path, now_iso)
@@ -169,7 +187,7 @@ async def smart_mailing_loop(bot) -> None:
             if admin_ids:
                 start_text = (
                     "🚀 <b>Рассылка началась!</b>\n"
-                    f"Эффект: <b>{effect['button_name']}</b>\n"
+                    f"Расклад: <b>{effect['button_name']}</b>\n"
                     f"Целевая аудитория: <b>{total}</b> чел."
                 )
                 for admin_id in admin_ids:
@@ -191,7 +209,7 @@ async def smart_mailing_loop(bot) -> None:
                 if await crud.is_subscription_active(config.database_path, user_id, now_iso):
                     continue
 
-                status = await _send_promo(bot, user_id, effect)
+                status = await _send_promo(bot, user_id, promo_text)
                 if status == "sent":
                     sent += 1
                 elif status == "blocked":
@@ -239,6 +257,7 @@ async def smart_mailing_loop(bot) -> None:
                     int(effect["id"]),
                     last_type="photo",
                     last_photo_id=int(effect["id"]),
+                    last_push_variant_idx=template_idx,
                 )
             else:
                 await crud.set_mailer_state(
@@ -246,15 +265,17 @@ async def smart_mailing_loop(bot) -> None:
                     int(effect["id"]),
                     last_type="video",
                     last_video_id=int(effect["id"]),
+                    last_push_variant_idx=template_idx,
                 )
 
             logger.info(
-                "Mailer: done effect_id=%s type=%s sent=%s blocked=%s failed=%s",
+                "Mailer: done effect_id=%s type=%s sent=%s blocked=%s failed=%s template_idx=%s",
                 effect["id"],
                 next_type,
                 sent,
                 blocked,
                 failed,
+                template_idx,
             )
         except Exception as e:
             logger.exception("Mailer: loop error: %s", e)

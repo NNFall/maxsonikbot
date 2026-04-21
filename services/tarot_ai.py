@@ -555,3 +555,137 @@ async def generate_tarot_continuation_text(
         logger.warning('Tarot continuation via Replicate failed: %s', replicate_error)
 
     return _fallback_continuation(question, first_card, first_text, cards)
+
+
+def _mailer_system_prompt() -> str:
+    return (
+        "Ты маркетолог таро-бота. Пиши только на русском языке. "
+        "Нужен короткий пуш для мессенджера MAX: 1-2 предложения, до 140 символов, "
+        "без навязчивости, без обещаний 100% результата, без markdown и html."
+    )
+
+
+def _mailer_user_prompt(effect_name: str, seed_template: str) -> str:
+    return (
+        f"Тема расклада: {effect_name}\n"
+        f"Опорная формулировка: {seed_template}\n"
+        "Сгенерируй 1 вариант пуша с мягким CTA."
+    )
+
+
+def _sanitize_mailer_push_text(text: str) -> str:
+    cleaned = text.replace("\r\n", "\n").strip()
+    cleaned = HTML_TAG_RE.sub("", cleaned)
+    cleaned = re.sub(r"[*_`#>\[\]\(\)]", "", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    if not cleaned:
+        return ""
+    if len(cleaned) > 140:
+        cleaned = cleaned[:140].rstrip(" ,.;:!?")
+    return cleaned
+
+
+def _call_kie_mailer_push_text(effect_name: str, seed_template: str) -> str:
+    cfg = load_config()
+    if not cfg.kie_api_key or not cfg.kie_base_url:
+        raise RuntimeError("Kie text key/base_url is not configured")
+
+    headers = {
+        "Authorization": f"Bearer {cfg.kie_api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "messages": [
+            {"role": "system", "content": _mailer_system_prompt()},
+            {"role": "user", "content": _mailer_user_prompt(effect_name, seed_template)},
+        ],
+        "temperature": 0.9,
+    }
+
+    base = cfg.kie_base_url.rstrip("/")
+    last_error: Exception | None = None
+    for model_name in _kie_model_candidates(cfg.kie_text_model):
+        url = f"{base}/{model_name}/v1/chat/completions"
+        try:
+            response = requests.post(url, headers=headers, json=payload, timeout=45)
+            response.raise_for_status()
+            data = response.json()
+            if isinstance(data, dict) and data.get("code") and data.get("code") != 200:
+                raise RuntimeError(f'Kie error code={data.get("code")} msg={data.get("msg")}')
+            text = _extract_text_from_json(data)
+            if not text:
+                raise RuntimeError("Kie response has no content")
+            normalized = _sanitize_mailer_push_text(text)
+            if not normalized:
+                raise RuntimeError("Kie response became empty after sanitize")
+            return normalized
+        except Exception as e:
+            last_error = e
+            logger.warning("Kie mailer push failed model=%s error=%s", model_name, e)
+
+    if last_error:
+        raise last_error
+    raise RuntimeError("No Kie model candidates available")
+
+
+def _call_replicate_mailer_push_text(effect_name: str, seed_template: str) -> str:
+    cfg = load_config()
+    if not cfg.replicate_api_token:
+        raise RuntimeError("Replicate token is not configured")
+
+    base = cfg.replicate_base_url.rstrip("/")
+    headers = _replicate_headers(cfg.replicate_api_token)
+    prompt = f"{_mailer_system_prompt()}\n\n{_mailer_user_prompt(effect_name, seed_template)}"
+
+    if cfg.replicate_text_model:
+        model_path = cfg.replicate_text_model.strip().strip("/")
+        create_url = f"{base}/v1/models/{model_path}/predictions"
+        create_payload = {"input": {"prompt": prompt}}
+        create_response = requests.post(create_url, headers=headers, data=json.dumps(create_payload), timeout=60)
+        create_response.raise_for_status()
+        prediction = create_response.json()
+        get_url = (prediction.get("urls") or {}).get("get")
+        if not get_url:
+            prediction_id = prediction.get("id")
+            if not prediction_id:
+                raise RuntimeError("Replicate prediction id is missing")
+            get_url = f"{base}/v1/predictions/{prediction_id}"
+        text = _poll_replicate_prediction(get_url, headers)
+        normalized = _sanitize_mailer_push_text(text)
+        if normalized:
+            return normalized
+        raise RuntimeError("Replicate response became empty after sanitize")
+
+    if cfg.replicate_text_version:
+        create_url = f"{base}/v1/predictions"
+        create_payload = {"version": cfg.replicate_text_version, "input": {"prompt": prompt}}
+        create_response = requests.post(create_url, headers=headers, data=json.dumps(create_payload), timeout=60)
+        create_response.raise_for_status()
+        prediction = create_response.json()
+        get_url = (prediction.get("urls") or {}).get("get")
+        if not get_url:
+            prediction_id = prediction.get("id")
+            if not prediction_id:
+                raise RuntimeError("Replicate prediction id is missing")
+            get_url = f"{base}/v1/predictions/{prediction_id}"
+        text = _poll_replicate_prediction(get_url, headers)
+        normalized = _sanitize_mailer_push_text(text)
+        if normalized:
+            return normalized
+        raise RuntimeError("Replicate response became empty after sanitize")
+
+    raise RuntimeError("Replicate text model/version is not configured")
+
+
+async def generate_mailing_push_text(effect_name: str, seed_template: str) -> str:
+    try:
+        return await asyncio.to_thread(_call_kie_mailer_push_text, effect_name, seed_template)
+    except Exception as kie_error:
+        logger.warning("Mailer text via Kie failed: %s", kie_error)
+
+    try:
+        return await asyncio.to_thread(_call_replicate_mailer_push_text, effect_name, seed_template)
+    except Exception as replicate_error:
+        logger.warning("Mailer text via Replicate failed: %s", replicate_error)
+
+    return seed_template

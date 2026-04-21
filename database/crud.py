@@ -558,20 +558,22 @@ async def set_mailer_state(
     last_type: str | None = None,
     last_video_id: int | None = None,
     last_photo_id: int | None = None,
+    last_push_variant_idx: int | None = None,
 ) -> None:
     async with aiosqlite.connect(db_path) as db:
         await db.execute(
             '''
-            INSERT INTO mailer_state (id, last_effect_id, last_type, last_video_id, last_photo_id, updated_at)
-            VALUES (1, ?, ?, ?, ?, ?)
+            INSERT INTO mailer_state (id, last_effect_id, last_type, last_video_id, last_photo_id, last_push_variant_idx, updated_at)
+            VALUES (1, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 last_effect_id=excluded.last_effect_id,
                 last_type=COALESCE(excluded.last_type, last_type),
                 last_video_id=COALESCE(excluded.last_video_id, last_video_id),
                 last_photo_id=COALESCE(excluded.last_photo_id, last_photo_id),
+                last_push_variant_idx=COALESCE(excluded.last_push_variant_idx, last_push_variant_idx),
                 updated_at=excluded.updated_at
             ''',
-            (last_effect_id, last_type, last_video_id, last_photo_id, _utcnow()),
+            (last_effect_id, last_type, last_video_id, last_photo_id, last_push_variant_idx, _utcnow()),
         )
         await db.commit()
 
