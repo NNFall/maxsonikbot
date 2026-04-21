@@ -130,11 +130,8 @@ async def smart_mailing_loop(bot) -> None:
             if not promo_text:
                 template_idx, promo_body, promo_text = await _build_promo_text(state)
 
-            now_iso = datetime.utcnow().isoformat(timespec="seconds")
-            active_ids = await crud.list_active_subscription_user_ids(config.database_path, now_iso)
-            active_set = set(active_ids)
             user_ids = await crud.list_user_ids(config.database_path)
-            target_ids = [uid for uid in user_ids if uid not in active_set]
+            target_ids = list(user_ids)
             total = len(target_ids)
 
             progress_msgs: dict[int, str] = {}
@@ -158,10 +155,6 @@ async def smart_mailing_loop(bot) -> None:
             last_tick = datetime.utcnow()
 
             for user_id in target_ids:
-                now_iso = datetime.utcnow().isoformat(timespec="seconds")
-                if await crud.is_subscription_active(config.database_path, user_id, now_iso):
-                    continue
-
                 status = await _send_promo(bot, user_id, promo_text)
                 if status == "sent":
                     sent += 1
