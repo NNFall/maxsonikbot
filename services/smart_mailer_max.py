@@ -18,17 +18,6 @@ CYCLE_SLEEP_SEC = 12 * 60 * 60
 PROGRESS_TICK_SEC = 60
 
 
-def _pick_next_effect(effects: list[dict], last_effect_id: int | None) -> dict | None:
-    if not effects:
-        return None
-    if last_effect_id is None:
-        return effects[0]
-    for idx, effect in enumerate(effects):
-        if int(effect["id"]) == int(last_effect_id):
-            return effects[(idx + 1) % len(effects)]
-    return effects[0]
-
-
 def _admin_ids(cfg) -> list[int]:
     ids = cfg.admin_notify_ids or cfg.admin_ids
     return [int(x) for x in ids] if ids else []
@@ -50,8 +39,8 @@ def _progress_text(sent: int, total: int, errors: int) -> str:
     )
 
 
-def _promo_text(body: str, effect_name: str) -> str:
-    return f"{body}\n\n🔮 Расклад: <b>{effect_name}</b>"
+def _promo_text(body: str) -> str:
+    return f"{body}\n\n🔮 <b>Таро-расклад</b>"
 
 
 async def _send_message(bot, recipient_id: int, text: str, attachments=None):
@@ -86,9 +75,9 @@ async def _send_promo(bot, user_id: int, text: str) -> str:
         return "failed"
 
 
-async def _build_promo_text(state: dict, effect_name: str) -> tuple[int, str, str]:
+async def _build_promo_text(state: dict) -> tuple[int, str, str]:
     template_idx, template_body = next_variant(state.get("last_push_variant_idx"))
-    return template_idx, template_body, _promo_text(template_body, effect_name)
+    return template_idx, template_body, _promo_text(template_body)
 
 
 async def _send_preview(bot, admin_ids: list[int], promo_body: str) -> None:
@@ -101,26 +90,6 @@ async def _send_preview(bot, admin_ids: list[int], promo_body: str) -> None:
             await _send_message(bot, admin_id, preview_text)
         except Exception:
             continue
-
-
-async def _choose_next_effect(config, state: dict) -> tuple[dict | None, str | None]:
-    video_effects = await crud.list_effects(config.database_path, active_only=True, effect_type="video")
-    photo_effects = await crud.list_effects(config.database_path, active_only=True, effect_type="photo")
-
-    if not video_effects and not photo_effects:
-        return None, None
-
-    last_type = state.get("last_type") or "photo"
-    next_type = "photo" if last_type == "video" else "video"
-
-    if next_type == "photo" and photo_effects:
-        return _pick_next_effect(photo_effects, state.get("last_photo_id")), "photo"
-    if next_type == "video" and video_effects:
-        return _pick_next_effect(video_effects, state.get("last_video_id")), "video"
-
-    if video_effects:
-        return _pick_next_effect(video_effects, state.get("last_video_id")), "video"
-    return _pick_next_effect(photo_effects, state.get("last_photo_id")), "photo"
 
 
 async def smart_mailing_loop(bot) -> None:
@@ -139,8 +108,9 @@ async def smart_mailing_loop(bot) -> None:
                 except Exception:
                     next_run_at = None
 
-            effect = None
-            next_type = None
+            template_idx = -1
+            promo_body = ""
+            promo_text = ""
 
             if next_run_at:
                 now = datetime.utcnow()
@@ -149,31 +119,16 @@ async def smart_mailing_loop(bot) -> None:
                     await asyncio.sleep((preview_at - now).total_seconds())
 
                 if datetime.utcnow() < next_run_at:
-                    effect, next_type = await _choose_next_effect(config, state)
-                    if not effect:
-                        await asyncio.sleep(60 * 60)
-                        continue
-
-                    template_idx, promo_body, promo_text = await _build_promo_text(state, effect["button_name"])
+                    template_idx, promo_body, promo_text = await _build_promo_text(state)
                     if admin_ids:
                         await _send_preview(bot, admin_ids, promo_body)
 
                     wait_sec = (next_run_at - datetime.utcnow()).total_seconds()
                     if wait_sec > 0:
                         await asyncio.sleep(wait_sec)
-                else:
-                    template_idx, promo_body, promo_text = -1, "", ""
-            else:
-                template_idx, promo_body, promo_text = -1, "", ""
-
-            if effect is None:
-                effect, next_type = await _choose_next_effect(config, state)
-                if not effect:
-                    await asyncio.sleep(60 * 60)
-                    continue
 
             if not promo_text:
-                template_idx, promo_body, promo_text = await _build_promo_text(state, effect["button_name"])
+                template_idx, promo_body, promo_text = await _build_promo_text(state)
 
             now_iso = datetime.utcnow().isoformat(timespec="seconds")
             active_ids = await crud.list_active_subscription_user_ids(config.database_path, now_iso)
@@ -186,7 +141,6 @@ async def smart_mailing_loop(bot) -> None:
             if admin_ids:
                 start_text = (
                     "🚀 <b>Рассылка началась!</b>\n"
-                    f"Расклад: <b>{effect['button_name']}</b>\n"
                     f"Целевая аудитория: <b>{total}</b> чел."
                 )
                 for admin_id in admin_ids:
@@ -248,27 +202,17 @@ async def smart_mailing_loop(bot) -> None:
                     except Exception:
                         continue
 
-            if next_type == "photo":
-                await crud.set_mailer_state(
-                    config.database_path,
-                    int(effect["id"]),
-                    last_type="photo",
-                    last_photo_id=int(effect["id"]),
-                    last_push_variant_idx=template_idx,
-                )
-            else:
-                await crud.set_mailer_state(
-                    config.database_path,
-                    int(effect["id"]),
-                    last_type="video",
-                    last_video_id=int(effect["id"]),
-                    last_push_variant_idx=template_idx,
-                )
+            await crud.set_mailer_state(
+                config.database_path,
+                state.get("last_effect_id"),
+                last_type=state.get("last_type"),
+                last_video_id=state.get("last_video_id"),
+                last_photo_id=state.get("last_photo_id"),
+                last_push_variant_idx=template_idx,
+            )
 
             logger.info(
-                "Mailer: done effect_id=%s type=%s sent=%s blocked=%s failed=%s template_idx=%s",
-                effect["id"],
-                next_type,
+                "Mailer: done sent=%s blocked=%s failed=%s template_idx=%s",
                 sent,
                 blocked,
                 failed,
