@@ -18,9 +18,14 @@ CYCLE_SLEEP_SEC = 12 * 60 * 60
 PROGRESS_TICK_SEC = 60
 
 
-def _admin_ids(cfg) -> list[int]:
-    ids = cfg.admin_notify_ids or cfg.admin_ids
-    return [int(x) for x in ids] if ids else []
+async def _admin_ids(cfg) -> list[int]:
+    base_ids = [int(x) for x in (cfg.admin_notify_ids or cfg.admin_ids or [])]
+    try:
+        db_admin_ids = await crud.list_admins(cfg.database_path)
+    except Exception:
+        db_admin_ids = []
+    # Keep stable order and remove duplicates.
+    return list(dict.fromkeys(base_ids + [int(x) for x in db_admin_ids]))
 
 
 def _extract_mid(response: Any) -> str | None:
@@ -95,10 +100,10 @@ async def _send_preview(bot, admin_ids: list[int], promo_body: str) -> None:
 async def smart_mailing_loop(bot) -> None:
     config = load_config()
     delay = 1 / SEND_RATE_PER_SEC
-    admin_ids = _admin_ids(config)
 
     while True:
         try:
+            admin_ids = await _admin_ids(config)
             state = await crud.get_mailer_state(config.database_path) or {}
             updated_at = state.get("updated_at")
             next_run_at = None
@@ -130,8 +135,11 @@ async def smart_mailing_loop(bot) -> None:
             if not promo_text:
                 template_idx, promo_body, promo_text = await _build_promo_text(state)
 
+            now_iso = datetime.utcnow().isoformat(timespec="seconds")
+            active_ids = await crud.list_active_subscription_user_ids(config.database_path, now_iso)
+            active_set = set(active_ids)
             user_ids = await crud.list_user_ids(config.database_path)
-            target_ids = list(user_ids)
+            target_ids = [uid for uid in user_ids if uid not in active_set]
             total = len(target_ids)
 
             progress_msgs: dict[int, str] = {}
@@ -155,6 +163,10 @@ async def smart_mailing_loop(bot) -> None:
             last_tick = datetime.utcnow()
 
             for user_id in target_ids:
+                now_iso = datetime.utcnow().isoformat(timespec="seconds")
+                if await crud.is_subscription_active(config.database_path, user_id, now_iso):
+                    continue
+
                 status = await _send_promo(bot, user_id, promo_text)
                 if status == "sent":
                     sent += 1
