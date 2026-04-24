@@ -1,5 +1,5 @@
 from .admin_kb import admin_help_attachments
-from .common_kb import menu_only_attachments
+from .common_kb import help_attachments, menu_only_attachments
 from .mailer_kb import mailer_attachments
 from .main_menu import main_menu_attachments
 from .payment_kb import (
@@ -13,6 +13,7 @@ from .tarot_kb import tarot_after_reading_attachments, tarot_open_full_attachmen
 
 __all__ = [
     "admin_help_attachments",
+    "help_attachments",
     "main_menu_attachments",
     "menu_only_attachments",
     "mailer_attachments",

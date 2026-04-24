@@ -131,6 +131,6 @@ def load_config() -> Config:
         sub_month_price_stars=int(_get_env('SUB_MONTH_PRICE_STARS', '499') or '499'),
         sub_month_generations=int(_get_env('SUB_MONTH_GENERATIONS', '100') or '100'),
         sub_month_days=int(_get_env('SUB_MONTH_DAYS', '30') or '30'),
-        support_contact=_get_env('SUPPORT_CONTACT', '@your_tracksupport') or '@your_tracksupport',
+        support_contact=_get_env('SUPPORT_CONTACT', 'https://max.ru/u/f9LHodD0cOL1NLfuFBoMvvVMSgRmsLKspQSSM1d9_6ZR68W1oT3zfN20xA8') or 'https://max.ru/u/f9LHodD0cOL1NLfuFBoMvvVMSgRmsLKspQSSM1d9_6ZR68W1oT3zfN20xA8',
         offer_url=_get_env('OFFER_URL', 'https://example.com/oferta') or 'https://example.com/oferta',
     )

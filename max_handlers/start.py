@@ -6,11 +6,11 @@ from urllib.parse import quote
 
 from maxapi import F, Router
 from maxapi.context import BaseContext
-from maxapi.types import Command, CommandStart, MessageCallback, MessageCreated
+from maxapi.types import BotStarted, Command, CommandStart, MessageCallback, MessageCreated
 
 from config import load_config
 from database import crud
-from max_keyboards import main_menu_attachments, menu_only_attachments
+from max_keyboards import help_attachments, main_menu_attachments, menu_only_attachments
 from services.notify import notify_admin
 
 router = Router("start")
@@ -25,7 +25,9 @@ def _extract_payload(args: list[str] | None) -> str | None:
     return payload or None
 
 
-def _user_id(event: MessageCreated | MessageCallback) -> int | None:
+def _user_id(event: MessageCreated | MessageCallback | BotStarted) -> int | None:
+    if isinstance(event, BotStarted):
+        return int(event.user.user_id)
     if getattr(event, "from_user", None):
         return int(event.from_user.user_id)
     if isinstance(event, MessageCreated) and event.message.sender:
@@ -35,10 +37,22 @@ def _user_id(event: MessageCreated | MessageCallback) -> int | None:
     return None
 
 
-def _chat_id(event: MessageCreated | MessageCallback) -> int | None:
+def _chat_id(event: MessageCreated | MessageCallback | BotStarted) -> int | None:
+    if isinstance(event, BotStarted):
+        return int(event.chat_id)
     message = getattr(event, "message", None)
     if message and message.recipient:
         return message.recipient.chat_id
+    return None
+
+
+def _username(event: MessageCreated | MessageCallback | BotStarted) -> str | None:
+    if isinstance(event, BotStarted):
+        return event.user.username
+    if getattr(event, "from_user", None):
+        return event.from_user.username
+    if isinstance(event, MessageCallback):
+        return event.callback.user.username
     return None
 
 
@@ -55,7 +69,7 @@ async def _send_main_menu(bot, chat_id: int) -> None:
     )
 
 
-async def _process_start(event: MessageCreated, payload: str | None) -> None:
+async def _process_start(event: MessageCreated | BotStarted, payload: str | None) -> None:
     uid = _user_id(event)
     chat_id = _chat_id(event)
     if uid is None or chat_id is None:
@@ -96,7 +110,8 @@ async def _process_start(event: MessageCreated, payload: str | None) -> None:
 
     if is_new:
         tag = utm_source or "без метки"
-        username = f"@{event.from_user.username}" if event.from_user and event.from_user.username else "-"
+        raw_username = _username(event)
+        username = f"@{raw_username}" if raw_username else "-"
         asyncio.create_task(
             notify_admin(
                 event.bot,
@@ -113,6 +128,12 @@ async def cmd_start(event: MessageCreated, args: list[str], context: BaseContext
     await context.clear()
     payload = _extract_payload(args)
     await _process_start(event, payload)
+
+
+@router.bot_started()
+async def on_bot_started(event: BotStarted, context: BaseContext) -> None:
+    await context.clear()
+    await _process_start(event, event.payload)
 
 
 @router.message_created(Command("menu"))
@@ -143,10 +164,9 @@ async def cmd_help(event: MessageCreated) -> None:
             "1) Нажмите «Задать вопрос»\n"
             "2) Введите ваш вопрос\n"
             "3) Получите первую карту и разбор\n"
-            "4) Откройте полный расклад\n\n"
-            f"Поддержка: {config.support_contact}"
+            "4) Откройте полный расклад"
         ),
-        attachments=menu_only_attachments(),
+        attachments=help_attachments(config.support_contact),
     )
 
 
@@ -201,10 +221,9 @@ async def cb_help(event: MessageCallback) -> None:
             "1) Нажмите «Задать вопрос»\n"
             "2) Введите ваш вопрос\n"
             "3) Получите первую карту и разбор\n"
-            "4) Откройте полный расклад\n\n"
-            f"Поддержка: {config.support_contact}"
+            "4) Откройте полный расклад"
         ),
-        attachments=menu_only_attachments(),
+        attachments=help_attachments(config.support_contact),
     )
 
 
