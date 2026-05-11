@@ -10,6 +10,13 @@ def _get_env(name: str, default: str | None = None) -> str | None:
     return os.getenv(name, default)
 
 
+def _get_bool_env(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
 @dataclass(frozen=True)
 class Config:
     bot_token: str
@@ -69,6 +76,12 @@ class Config:
     sub_month_days: int
     support_contact: str
     offer_url: str
+    max_use_webhook: bool
+    max_webhook_url: str
+    max_webhook_secret: str
+    max_webhook_host: str
+    max_webhook_port: int
+    max_webhook_path: str
 
 
 def load_config() -> Config:
@@ -133,4 +146,10 @@ def load_config() -> Config:
         sub_month_days=int(_get_env('SUB_MONTH_DAYS', '30') or '30'),
         support_contact=_get_env('SUPPORT_CONTACT', 'https://max.ru/u/f9LHodD0cOL1NLfuFBoMvvVMSgRmsLKspQSSM1d9_6ZR68W1oT3zfN20xA8') or 'https://max.ru/u/f9LHodD0cOL1NLfuFBoMvvVMSgRmsLKspQSSM1d9_6ZR68W1oT3zfN20xA8',
         offer_url=_get_env('OFFER_URL', 'https://example.com/oferta') or 'https://example.com/oferta',
+        max_use_webhook=_get_bool_env('MAX_USE_WEBHOOK', False),
+        max_webhook_url=_get_env('MAX_WEBHOOK_URL', '') or '',
+        max_webhook_secret=_get_env('MAX_WEBHOOK_SECRET', '') or '',
+        max_webhook_host=_get_env('MAX_WEBHOOK_HOST', '0.0.0.0') or '0.0.0.0',
+        max_webhook_port=int(_get_env('MAX_WEBHOOK_PORT', '8080') or '8080'),
+        max_webhook_path=_get_env('MAX_WEBHOOK_PATH', '/max-webhook') or '/max-webhook',
     )

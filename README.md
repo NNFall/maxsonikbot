@@ -12,11 +12,11 @@
 - отправлять админ-уведомления и выполнять фоновую рассылку.
 
 ## Текущий статус
-- Проект работает на `maxapi`.
+- Проект работает на `maxapi` (поддерживает `webhook` и `polling` fallback).
 - Продакшен развернут на сервере в `/root/maxtarobot` (Docker).
 
 ## Структура проекта
-- `main.py` — точка входа, роутеры, polling, фоновые задачи.
+- `main.py` — точка входа, роутеры, webhook/polling, фоновые задачи.
 - `config.py` — конфигурация из `.env`.
 - `max_handlers/` — обработчики MAX (`start`, `tarot`, `payments`, `admin`, `states`).
 - `max_keyboards/` — inline-кнопки MAX.
@@ -53,6 +53,7 @@
 - `/admin_add <ID>` (только owner)
 - `/admin_del <ID>` (только owner)
 - `/admin_list` (только owner)
+- `/notify_test` (тест доставки админ-уведомлений)
 
 Важно:
 - В MAX нет полноценного аналога Telegram `command scope`.
@@ -70,6 +71,10 @@
 
 ## Ключевые переменные окружения
 - `MAX_BOT_TOKEN` — токен бота MAX.
+- `MAX_USE_WEBHOOK` — `1` для webhook-режима, `0` для polling fallback.
+- `MAX_WEBHOOK_URL` — публичный URL webhook (например `https://bot.example.com/max-webhook`).
+- `MAX_WEBHOOK_SECRET` — секрет webhook (`X-Max-Bot-Api-Secret`).
+- `MAX_WEBHOOK_HOST`, `MAX_WEBHOOK_PORT`, `MAX_WEBHOOK_PATH` — локальный listener.
 - `DATABASE_PATH` — путь к SQLite (`/app/data/database.db` в Docker).
 - `MEDIA_TEMP_DIR` — временная папка медиа.
 - `YOOKASSA_*` — платежи.
@@ -99,6 +104,8 @@ docker compose ps
 docker compose logs -f bot
 ```
 
+Webhook-порт публикуется через `MAX_WEBHOOK_PORT` (по умолчанию `8080`).
+
 ## Продакшен
 Папка проекта:
 - `/root/maxtarobot`
@@ -123,6 +130,8 @@ ls -la /root/maxtarobot/data
 
 Причина:
 - одновременно работают несколько процессов `python main.py`/контейнеров с тем же токеном.
+
+С учетом требований MAX от 11.05.2026 рекомендуется использовать `webhook` вместо `long polling`.
 
 ## Документы
 - План миграции: `MAX_MIGRATION_PLAN.md`

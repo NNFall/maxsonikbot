@@ -3,6 +3,8 @@ services:
     build: .
     env_file: .env
     restart: unless-stopped
+    ports:
+      - "${MAX_WEBHOOK_PORT:-8080}:${MAX_WEBHOOK_PORT:-8080}"
     volumes:
       - ./data:/app/data
       - ./media:/app/media
