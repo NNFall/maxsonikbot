@@ -30,7 +30,8 @@ ADMIN_HELP_TEXT = (
     "<code>/sub_cancel &lt;ID&gt;</code> — отключить автопродление\n\n"
     "<code>/admin_add &lt;ID&gt;</code> — добавить админа (только owner)\n"
     "<code>/admin_del &lt;ID&gt;</code> — удалить админа (только owner)\n"
-    "<code>/admin_list</code> — список админов (только owner)"
+    "<code>/admin_list</code> — список админов (только owner)\n"
+    "<code>/notify_test</code> — тест доставки админ-уведомлений"
 )
 
 
@@ -76,6 +77,37 @@ async def cmd_admin_help(event: MessageCreated) -> None:
         chat_id=chat_id,
         text=ADMIN_HELP_TEXT,
         attachments=admin_help_attachments(),
+    )
+
+
+@router.message_created(Command("notify_test"))
+async def cmd_notify_test(event: MessageCreated) -> None:
+    user_id = _event_user_id(event)
+    if user_id is None or not await _is_admin(user_id):
+        return
+    chat_id = _event_chat_id(event)
+    if chat_id is None:
+        return
+
+    report = await notify_admin(
+        event.bot,
+        config.admin_notify_ids,
+        "🧪 Тест админ-уведомлений: если видите это сообщение, доставка работает.",
+    )
+    resolved = report.get("resolved_ids", [])
+    delivered = report.get("delivered", [])
+    failed = report.get("failed", [])
+    failed_ids = ", ".join(str(item.get("admin_id")) for item in failed) if failed else "-"
+
+    await event.bot.send_message(
+        chat_id=chat_id,
+        text=(
+            "✅ Тест уведомлений выполнен.\n"
+            f"Всего админов в выборке: {len(resolved)}\n"
+            f"Доставлено: {len(delivered)}\n"
+            f"Не доставлено: {len(failed)}\n"
+            f"Проблемные ID: {failed_ids}"
+        ),
     )
 
 
