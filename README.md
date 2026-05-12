@@ -72,7 +72,7 @@
 ## Ключевые переменные окружения
 - `MAX_BOT_TOKEN` — токен бота MAX.
 - `MAX_USE_WEBHOOK` — `1` для webhook-режима, `0` для polling fallback.
-- `MAX_WEBHOOK_URL` — публичный URL webhook (например `https://bot.example.com/max-webhook`).
+- `MAX_WEBHOOK_URL` — публичный URL webhook (например `https://bot.example.com/max-webhook-taro`).
 - `MAX_WEBHOOK_SECRET` — секрет webhook (`X-Max-Bot-Api-Secret`).
 - `MAX_WEBHOOK_HOST`, `MAX_WEBHOOK_PORT`, `MAX_WEBHOOK_PATH` — локальный listener.
 - `DATABASE_PATH` — путь к SQLite (`/app/data/database.db` в Docker).
