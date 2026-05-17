@@ -16,6 +16,16 @@ logger = logging.getLogger(__name__)
 
 HTML_TAG_RE = re.compile(r"<[^>]+>")
 
+SECTION_TITLES = {
+    "короткое толкование": "🌙 Короткое толкование",
+    "краткое значение": "🌙 Краткое значение",
+    "символы и знаки": "🔮 Символы и знаки",
+    "предупреждение": "⚠️ Предупреждение",
+    "эмоциональный смысл": "💭 Эмоциональный смысл",
+    "практический совет": "🧭 Практический совет",
+    "уточнение по сну": "💬 Уточнение по сну",
+}
+
 
 def _extract_text_from_json(payload: dict[str, Any]) -> str | None:
     choices = payload.get("choices")
@@ -42,14 +52,35 @@ def _extract_text_from_json(payload: dict[str, Any]) -> str | None:
 
 
 def _html_to_markdown(text: str) -> str:
-    text = re.sub(r"<\s*b\s*>(.*?)<\s*/\s*b\s*>", r"*\1*", text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r"<\s*b\s*>(.*?)<\s*/\s*b\s*>", r"**\1**", text, flags=re.IGNORECASE | re.DOTALL)
     text = re.sub(r"<\s*i\s*>(.*?)<\s*/\s*i\s*>", r"_\1_", text, flags=re.IGNORECASE | re.DOTALL)
     text = re.sub(r"<\s*code\s*>(.*?)<\s*/\s*code\s*>", r"`\1`", text, flags=re.IGNORECASE | re.DOTALL)
     return HTML_TAG_RE.sub("", text)
 
 
+def _section_key(line: str) -> str:
+    value = line.strip()
+    value = re.sub(r"^[\s>*_`#-]+|[\s>*_`#:-]+$", "", value)
+    value = re.sub(r"^[^\wа-яА-ЯёЁ]+", "", value)
+    value = re.sub(r"\s+", " ", value).strip().lower()
+    return value
+
+
+def _format_dream_sections(text: str) -> str:
+    lines: list[str] = []
+    for raw_line in text.split("\n"):
+        line = raw_line.strip()
+        key = _section_key(line)
+        title = SECTION_TITLES.get(key)
+        if title:
+            lines.append(f"**{title}**")
+        else:
+            lines.append(raw_line)
+    return "\n".join(lines).strip()
+
+
 def _normalize_model_text(text: str) -> str:
-    return _html_to_markdown(text.replace("\r\n", "\n").strip())
+    return _format_dream_sections(_html_to_markdown(text.replace("\r\n", "\n").strip()))
 
 
 def _kie_model_candidates(model: str) -> list[str]:
@@ -195,22 +226,22 @@ def _call_replicate_text(dream_text: str, mode: str) -> str:
 def _fallback_text(dream_text: str, mode: str) -> str:
     if mode == "teaser":
         return (
-            "*Короткое толкование*\n"
+            "**🌙 Короткое толкование**\n"
             "Этот сон может показывать внутреннее напряжение, ожидание перемен или попытку психики разобрать важную ситуацию. "
             "Обратите внимание на самый яркий образ сна: чаще всего именно он несет главный эмоциональный сигнал.\n\n"
             "Полный разбор покажет символы, предупреждение, эмоциональный смысл и практический совет."
         )
 
     return (
-        "*Краткое значение*\n"
+        "**🌙 Краткое значение**\n"
         "Сон может отражать внутренний запрос на ясность и попытку разобраться с тем, что в реальности пока не проговорено.\n\n"
-        "*Символы и знаки*\n"
+        "**🔮 Символы и знаки**\n"
         "Главные образы сна стоит читать как подсказки о вашем эмоциональном фоне: что притягивает внимание, там обычно есть напряжение или желание.\n\n"
-        "*Предупреждение*\n"
+        "**⚠️ Предупреждение**\n"
         "Не принимайте сон как прямое предсказание. Он скорее показывает тему, к которой стоит отнестись внимательнее.\n\n"
-        "*Эмоциональный смысл*\n"
+        "**💭 Эмоциональный смысл**\n"
         "Похоже, психика пытается переработать переживания, ожидания или сомнения, связанные с описанной ситуацией.\n\n"
-        "*Практический совет*\n"
+        "**🧭 Практический совет**\n"
         f"Запишите сон в 2-3 фразах и отметьте, какая часть из описания \"{dream_text[:120]}\" вызывает самый сильный отклик."
     )
 
@@ -315,7 +346,7 @@ def _call_replicate_followup(dream_text: str, followup: str, last_answer: str, m
 
 def _fallback_followup(dream_text: str, followup: str) -> str:
     return (
-        "*Уточнение по сну*\n"
+        "**💬 Уточнение по сну**\n"
         f"По вашему вопросу \"{followup}\" главный ориентир такой: этот образ лучше читать не буквально, "
         "а как сигнал эмоции или ситуации, которая требует внимания.\n\n"
         f"В контексте сна \"{dream_text[:120]}\" важнее всего отметить, что именно вы чувствовали во сне и после пробуждения."
