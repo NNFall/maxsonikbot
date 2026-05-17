@@ -51,7 +51,7 @@ async def main() -> None:
     commands = [
         BotCommand(name="start", description="Запуск бота"),
         BotCommand(name="menu", description="Главное меню"),
-        BotCommand(name="ask", description="Задать вопрос Таро"),
+        BotCommand(name="ask", description="Разобрать сон"),
         BotCommand(name="balance", description="Баланс и подписка"),
         BotCommand(name="invite", description="Пригласить друга"),
         BotCommand(name="help", description="Помощь"),

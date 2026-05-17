@@ -14,15 +14,15 @@ from database import crud
 from max_keyboards import (
     choose_subscription_attachments,
     choose_subscription_prompt_attachments,
+    dream_after_interpretation_attachments,
     pay_url_attachments,
     payment_success_attachments,
     subscription_manage_attachments,
-    tarot_after_reading_attachments,
 )
 from services import yookassa as yk
 from services.notify import notify_admin
 from services.subscriptions import calc_period, get_plan, get_plans
-from services.tarot_reading_max import run_paid_tarot_reading, run_tarot_continuation
+from services.dream_reading_max import run_paid_dream_interpretation
 
 router = Router("payments")
 config = load_config()
@@ -115,7 +115,7 @@ def _build_receipt(amount_rub: int) -> dict | None:
     phone = config.yookassa_receipt_phone.strip() if config.yookassa_receipt_phone else ""
     tax_system = (config.yookassa_tax_system_code or "").strip()
     vat_code = (config.yookassa_vat_code or "").strip()
-    item_name = (config.yookassa_item_name or "Подписка на расклады").strip()
+    item_name = (config.yookassa_item_name or "Подписка на толкования снов").strip()
     if not tax_system:
         return None
     if not email and not phone:
@@ -223,47 +223,31 @@ async def _handle_pending_action(tx_id: int, user_id: int, chat_id: int, bot) ->
         return None
 
     action_type = payload.get("type")
-    if action_type != "tarot_full":
+    if action_type != "dream_full":
         return action_type
 
-    question = payload.get("question")
+    dream_text = payload.get("dream_text")
     username = payload.get("username")
-    cards_payload = payload.get("cards")
-    first_card = payload.get("first_card")
-    first_text = payload.get("first_text") or ""
-    if not question:
+    if not dream_text:
         return action_type
 
     await bot.send_message(
         chat_id=chat_id,
-        text="✅ Оплата прошла успешно.\nПродолжаю расклад...",
+        text="✅ Оплата прошла успешно.\nПродолжаю разбор сна...",
     )
 
-    ok = False
-    if isinstance(first_card, dict):
-        ok = await run_tarot_continuation(
-            bot,
-            user_id=user_id,
-            chat_id=chat_id,
-            question=question,
-            username=username,
-            first_card_payload=first_card,
-            first_text=first_text,
-        )
-    else:
-        ok = await run_paid_tarot_reading(
-            bot,
-            user_id=user_id,
-            chat_id=chat_id,
-            question=question,
-            username=username,
-            cards_payload=cards_payload if isinstance(cards_payload, list) else None,
-        )
+    ok = await run_paid_dream_interpretation(
+        bot,
+        user_id=user_id,
+        chat_id=chat_id,
+        dream_text=dream_text,
+        username=username,
+    )
     if ok:
         await bot.send_message(
             chat_id=chat_id,
-            text="✅ Расклад завершен.\nЕсли хотите, задайте новый вопрос или вернитесь в меню.",
-            attachments=tarot_after_reading_attachments(),
+            text="✅ Толкование готово.\nМожете описать новый сон или вернуться в меню.",
+            attachments=dream_after_interpretation_attachments(),
         )
     return action_type
 
@@ -305,10 +289,10 @@ async def _poll_yookassa_payment(bot, tx_id: int, user_id: int, chat_id: int, us
                         payment_method_id=payment_method_id,
                     )
                     pending_type = await _handle_pending_action(tx_id, user_id, chat_id, bot)
-                    if pending_type != "tarot_full":
+                    if pending_type != "dream_full":
                         await bot.send_message(
                             chat_id=chat_id,
-                            text="✅ Подписка активирована. Расклады начислены.",
+                            text="✅ Подписка активирована. Толкования начислены.",
                             attachments=payment_success_attachments(),
                         )
                     if _is_renew_tx(tx):
@@ -466,7 +450,7 @@ async def _send_balance(bot, chat_id: int, user_id: int) -> None:
         plan = get_plan(sub["plan_id"])
         end_date = _format_date(sub["current_period_end"])
         if plan:
-            plan_title = f"{plan.price_rub} ₽ / {plan.title} — {plan.generations} раскладов"
+            plan_title = f"{plan.price_rub} ₽ / {plan.title} — {plan.generations} толкований"
         else:
             plan_title = sub["plan_id"]
         await bot.send_message(
@@ -474,8 +458,8 @@ async def _send_balance(bot, chat_id: int, user_id: int) -> None:
             text=(
                 "✅ <b>Подписка активна</b>\n"
                 f"Тариф: <b>{plan_title}</b>\n"
-                f"Остаток раскладов: <b>{balance}</b>\n"
-                f"Обновление раскладов: <b>{end_date}</b>"
+                f"Остаток толкований: <b>{balance}</b>\n"
+                f"Обновление толкований: <b>{end_date}</b>"
             ),
             attachments=subscription_manage_attachments(int(sub.get("auto_renew", 0)) == 1),
         )
@@ -489,10 +473,10 @@ async def _send_balance(bot, chat_id: int, user_id: int) -> None:
         chat_id=chat_id,
         text=(
             "❌ <b>Подписка не активна</b>\n"
-            f"🔮 <b>Расклады:</b> {balance}\n\n"
+            f"🌙 <b>Толкования:</b> {balance}\n\n"
             "<b>Подписка с автосписанием</b>\n"
-            f"🔥 {week.price_rub} ₽ / {week_period} — {week.generations} раскладов\n"
-            f"⭐ {month.price_rub} ₽ / {month_period} — {month.generations} раскладов\n\n"
+            f"🔥 {week.price_rub} ₽ / {week_period} — {week.generations} толкований\n"
+            f"⭐ {month.price_rub} ₽ / {month_period} — {month.generations} толкований\n\n"
             f"Переходя к оплате, вы соглашаетесь с <a href=\"{config.offer_url}\">офертой</a>."
         ),
         attachments=choose_subscription_prompt_attachments(),
@@ -577,7 +561,7 @@ async def cb_sub_cancel(event: MessageCallback) -> None:
     end_date = _format_date(sub["current_period_end"]) if sub else "неизвестно"
     await event.bot.send_message(
         chat_id=chat_id,
-        text=f"Подписка выключена. Расклады доступны до <b>{end_date}</b>.",
+        text=f"Подписка выключена. Толкования доступны до <b>{end_date}</b>.",
     )
     await notify_admin(
         event.bot,

@@ -7,7 +7,7 @@ from maxapi.utils.inline_keyboard import InlineKeyboardBuilder
 
 def main_menu_attachments() -> list[Attachment]:
     kb = InlineKeyboardBuilder()
-    kb.row(CallbackButton(text="🔮 Задать вопрос", payload="menu:ask"))
+    kb.row(CallbackButton(text="🌙 Разобрать сон", payload="menu:ask"))
     kb.row(CallbackButton(text="💳 Баланс / Подписка", payload="menu:balance"))
     kb.row(CallbackButton(text="❓ Помощь", payload="menu:help"))
     kb.row(CallbackButton(text="🤝 Пригласить друга", payload="menu:invite"))

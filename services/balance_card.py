@@ -31,16 +31,16 @@ async def build_inactive_balance_text(bot, balance: int, include_header: bool = 
     if include_header:
         header = (
             '❌ <b>Подписка не активна</b>\n'
-            f'🔮 <b>Расклады:</b> {balance}\n\n'
+            f'🌙 <b>Толкования:</b> {balance}\n\n'
         )
 
     return (
         f'{header}'
         '<b>Подписка с автосписанием</b>\n'
-        f'🔥 {week.price_rub} ₽ / {week_period} — {week.generations} раскладов\n'
-        f'⭐ {month.price_rub} ₽ / {month_period} — {month.generations} раскладов\n\n'
-        f'⭐ {week.price_stars} ⭐ — {week.generations} раскладов (разово)\n'
-        f'⭐ {month.price_stars} ⭐ — {month.generations} раскладов (разово)\n\n'
+        f'🔥 {week.price_rub} ₽ / {week_period} — {week.generations} толкований\n'
+        f'⭐ {month.price_rub} ₽ / {month_period} — {month.generations} толкований\n\n'
+        f'⭐ {week.price_stars} ⭐ — {week.generations} толкований (разово)\n'
+        f'⭐ {month.price_stars} ⭐ — {month.generations} толкований (разово)\n\n'
         f'Отключить можно в любой момент в {balance_hint}.\n\n'
         f'Переходя к оплате, вы соглашаетесь с <a href="{cfg.offer_url}">офертой</a>.'
     )

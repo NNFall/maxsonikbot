@@ -45,7 +45,7 @@ def _progress_text(sent: int, total: int, errors: int) -> str:
 
 
 def _promo_text(body: str) -> str:
-    return f"{body}\n\n🔮 <b>Таро-расклад</b>"
+    return f"{body}\n\n🌙 <b>Сонник ИИ</b>"
 
 
 async def _send_message(bot, recipient_id: int, text: str, attachments=None):

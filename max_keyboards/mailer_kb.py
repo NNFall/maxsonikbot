@@ -7,6 +7,6 @@ from maxapi.utils.inline_keyboard import InlineKeyboardBuilder
 
 def mailer_attachments() -> list[Attachment]:
     kb = InlineKeyboardBuilder()
-    kb.row(CallbackButton(text="💬 Задать вопрос", payload="menu:ask"))
+    kb.row(CallbackButton(text="🌙 Разобрать сон", payload="menu:ask"))
     kb.row(CallbackButton(text="🏠 Главное меню", payload="menu:main"))
     return [kb.as_markup()]

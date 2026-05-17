@@ -17,6 +17,13 @@ def _get_bool_env(name: str, default: bool = False) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _product_item_name(raw: str | None) -> str:
+    value = (raw or "").strip()
+    if not value or value == "Подписка на расклады":
+        return "Подписка на толкования снов"
+    return value
+
+
 @dataclass(frozen=True)
 class Config:
     bot_token: str
@@ -55,7 +62,12 @@ class Config:
     tarot_progress_sticker_code: str
     tarot_progress_sticker_url: str
     tarot_progress_text: str
+    dream_progress_sticker_id: str
+    dream_progress_sticker_code: str
+    dream_progress_sticker_url: str
+    dream_progress_text: str
     ref_bonus: int
+    dream_interpretation_cost: int
     tarot_spread_cost: int
     effect_cost: int
     custom_cost_per_sec: int
@@ -111,7 +123,7 @@ def load_config() -> Config:
         yookassa_receipt_phone=_get_env('YOOKASSA_RECEIPT_PHONE', '') or '',
         yookassa_tax_system_code=_get_env('YOOKASSA_TAX_SYSTEM_CODE', '') or '',
         yookassa_vat_code=_get_env('YOOKASSA_VAT_CODE', '1') or '1',
-        yookassa_item_name=_get_env('YOOKASSA_ITEM_NAME', 'Подписка на расклады') or 'Подписка на расклады',
+        yookassa_item_name=_product_item_name(_get_env('YOOKASSA_ITEM_NAME', 'Подписка на толкования снов')),
         yookassa_payment_subject=_get_env('YOOKASSA_PAYMENT_SUBJECT', '') or '',
         yookassa_payment_mode=_get_env('YOOKASSA_PAYMENT_MODE', '') or '',
         admin_ids=admin_ids,
@@ -125,7 +137,12 @@ def load_config() -> Config:
         tarot_progress_sticker_code=_get_env('TAROT_PROGRESS_STICKER_CODE', '') or '',
         tarot_progress_sticker_url=_get_env('TAROT_PROGRESS_STICKER_URL', '') or '',
         tarot_progress_text=_get_env('TAROT_PROGRESS_TEXT', '✨ Выполняю расклад, смотрю ваши карты...') or '✨ Выполняю расклад, смотрю ваши карты...',
+        dream_progress_sticker_id=_get_env('DREAM_PROGRESS_STICKER_ID', _get_env('TAROT_PROGRESS_STICKER_ID', '') or '') or '',
+        dream_progress_sticker_code=_get_env('DREAM_PROGRESS_STICKER_CODE', _get_env('TAROT_PROGRESS_STICKER_CODE', '') or '') or '',
+        dream_progress_sticker_url=_get_env('DREAM_PROGRESS_STICKER_URL', _get_env('TAROT_PROGRESS_STICKER_URL', '') or '') or '',
+        dream_progress_text=_get_env('DREAM_PROGRESS_TEXT', '🌙 Разбираю сон и собираю толкование...') or '🌙 Разбираю сон и собираю толкование...',
         ref_bonus=int(_get_env('REF_BONUS', '20') or '20'),
+        dream_interpretation_cost=int(_get_env('DREAM_INTERPRETATION_COST', _get_env('TAROT_SPREAD_COST', '1') or '1') or '1'),
         tarot_spread_cost=int(_get_env('TAROT_SPREAD_COST', '1') or '1'),
         effect_cost=int(_get_env('EFFECT_COST', '10') or '10'),
         custom_cost_per_sec=int(_get_env('CUSTOM_COST_PER_SEC', '5') or '5'),

@@ -23,9 +23,9 @@ ADMIN_HELP_TEXT = (
     "<code>/adstats &lt;метка&gt;</code> — статистика по одной UTM-метке\n"
     "<code>/adstats_all</code> — статистика по всем UTM-меткам\n"
     "<code>/adtag &lt;метка&gt;</code> — ссылка с UTM-меткой\n"
-    "<code>/genpromo &lt;токены&gt;</code> — создать промокод\n\n"
+    "<code>/genpromo &lt;толкования&gt;</code> — создать промокод\n\n"
     "<code>/sub_check &lt;ID&gt;</code> — проверить баланс пользователя\n"
-    "<code>/sub_on &lt;ID&gt; &lt;amount&gt;</code> — начислить расклады\n"
+    "<code>/sub_on &lt;ID&gt; &lt;amount&gt;</code> — начислить толкования\n"
     "<code>/sub_off &lt;ID&gt;</code> — обнулить баланс\n"
     "<code>/sub_cancel &lt;ID&gt;</code> — отключить автопродление\n\n"
     "<code>/admin_add &lt;ID&gt;</code> — добавить админа (только owner)\n"
@@ -63,6 +63,19 @@ async def _answer(event: MessageCreated, text: str) -> None:
     if chat_id is None:
         return
     await event.bot.send_message(chat_id=chat_id, text=text)
+
+
+async def _ensure_admin(event: MessageCreated) -> tuple[bool, int | None]:
+    user_id = _event_user_id(event)
+    if user_id is None:
+        return False, None
+    if await _is_admin(user_id):
+        return True, user_id
+    await _answer(
+        event,
+        f"⛔ Нет доступа.\nВаш ID: <code>{user_id}</code>\nПередайте этот ID владельцу для выдачи админки.",
+    )
+    return False, user_id
 
 
 @router.message_created(Command("admin_help"))
@@ -111,6 +124,25 @@ async def cmd_notify_test(event: MessageCreated) -> None:
     )
 
 
+@router.message_created(Command("myid"))
+async def cmd_myid(event: MessageCreated) -> None:
+    user_id = _event_user_id(event)
+    chat_id = _event_chat_id(event)
+    if user_id is None or chat_id is None:
+        return
+    is_admin = await _is_admin(user_id)
+    is_owner = _is_owner(user_id)
+    await event.bot.send_message(
+        chat_id=chat_id,
+        text=(
+            "<b>Ваши данные</b>\n"
+            f"ID: <code>{user_id}</code>\n"
+            f"Админ: {'да' if is_admin else 'нет'}\n"
+            f"Owner: {'да' if is_owner else 'нет'}"
+        ),
+    )
+
+
 @router.message_created(Command("sub_on"))
 async def cmd_sub_on(event: MessageCreated, args: list[str]) -> None:
     user_id = _event_user_id(event)
@@ -122,7 +154,7 @@ async def cmd_sub_on(event: MessageCreated, args: list[str]) -> None:
     target_user_id = int(args[0])
     amount = int(args[1])
     await crud.update_balance(config.database_path, target_user_id, amount)
-    await _answer(event, f"Начислено {amount} раскладов пользователю {target_user_id}.")
+    await _answer(event, f"Начислено {amount} толкований пользователю {target_user_id}.")
 
 
 @router.message_created(Command("sub_off"))
@@ -161,7 +193,7 @@ async def cmd_sub_check(event: MessageCreated, args: list[str]) -> None:
         return
     target_user_id = int(args[0])
     balance = await crud.get_balance(config.database_path, target_user_id)
-    await _answer(event, f"Баланс пользователя {target_user_id}: {balance} раскладов")
+    await _answer(event, f"Баланс пользователя {target_user_id}: {balance} толкований")
 
 
 @router.message_created(Command("adstats"))
@@ -274,7 +306,7 @@ async def cmd_botstats(event: MessageCreated) -> None:
         event,
         "📊 <b>Общая статистика бота</b>\n\n"
         f"👥 Всего пользователей: {total_users}\n"
-        f"🎁 Использовали бесплатную генерацию: {free_users}\n"
+        f"🎁 Использовали пробное толкование: {free_users}\n"
         f"💳 Оплативших: {paid_users}\n"
         f"🔥 Активных подписок: {active_subs}\n"
         f"🟢 Подписка {week_price}₽ ({week_label}): {subs_by_plan.get('week', 0)}\n"
@@ -309,8 +341,8 @@ async def cmd_adtag(event: MessageCreated, args: list[str]) -> None:
 
 @router.message_created(Command("genpromo"))
 async def cmd_genpromo(event: MessageCreated, args: list[str]) -> None:
-    user_id = _event_user_id(event)
-    if user_id is None or not await _is_admin(user_id):
+    ok, user_id = await _ensure_admin(event)
+    if not ok or user_id is None:
         return
     if len(args) < 1 or not args[0].isdigit():
         await _answer(event, "Использование: /genpromo <code>кол-во</code>")
@@ -325,7 +357,7 @@ async def cmd_genpromo(event: MessageCreated, args: list[str]) -> None:
     await notify_admin(
         event.bot,
         config.admin_notify_ids,
-        f"🎁 Создан промокод на {credits} раскладов: {code}",
+        f"🎁 Создан промокод на {credits} толкований: {code}",
     )
 
 

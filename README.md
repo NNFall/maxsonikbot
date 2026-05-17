@@ -1,35 +1,40 @@
-# MaxTarobot (MAX Messenger)
+# Сонник ИИ (MAX Messenger)
 
 ## Что это
-`MaxTarobot` — бот Таро для мессенджера MAX.
+`Сонник ИИ` — MAX-бот для толкования снов через текстовую нейросеть.
 
 Бот умеет:
-- принимать вопрос пользователя;
-- делать пробный и полный расклад;
+- принимать описание сна от пользователя;
+- делать короткое пробное толкование;
+- делать полный разбор сна: значение, символы, возможные знаки, предупреждения, эмоциональный смысл и практический совет;
 - работать с подпиской и балансом;
 - принимать оплату через YooKassa;
+- продолжать отложенный разбор после успешной оплаты;
 - хранить данные в SQLite;
-- отправлять админ-уведомления и выполнять фоновую рассылку.
+- отправлять админ-уведомления и выполнять фоновую smart-рассылку.
 
 ## Текущий статус
-- Проект работает на `maxapi` (поддерживает `webhook` и `polling` fallback).
-- Продакшен развернут на сервере в `/root/maxtarobot` (Docker).
+- Проект работает на `maxapi` и поддерживает `webhook` или polling fallback.
+- Платформенная оболочка сохранена от MaxTarobot: YooKassa, подписки, баланс, админка, рассылка, БД и Docker.
+- Активный продуктовый сценарий находится в `max_handlers/dream.py`, `services/dream_*.py`, `prompts/dream_prompts.py`.
 
 ## Структура проекта
 - `main.py` — точка входа, роутеры, webhook/polling, фоновые задачи.
 - `config.py` — конфигурация из `.env`.
-- `max_handlers/` — обработчики MAX (`start`, `tarot`, `payments`, `admin`, `states`).
+- `max_handlers/` — обработчики MAX (`start`, `dream`, `payments`, `admin`, `states`).
 - `max_keyboards/` — inline-кнопки MAX.
-- `services/` — бизнес-логика, интеграции, подписки, рассылка.
+- `services/` — бизнес-логика, нейросеть, подписки, рассылка, уведомления.
 - `database/` — схема БД и CRUD.
-- `media/` — карты Таро, шаблоны, временные файлы.
+- `prompts/` — промпты сонника и push-шаблоны.
+- `media/` — временные файлы и оставшиеся legacy-ассеты.
 
-## Основные сценарии
+## Основной сценарий
 1. Пользователь нажимает `/start` или кнопку меню.
-2. Переходит в `/ask` и задает вопрос.
-3. Получает пробный или полный расклад (в зависимости от баланса и trial).
-4. При нехватке баланса переходит в оплату.
-5. После успешной оплаты продолжается отложенный сценарий (`pending_actions`).
+2. Переходит в `/ask` и описывает сон.
+3. Если пользователь новый и нет баланса, получает короткое пробное толкование.
+4. Полный разбор стоит 1 толкование с баланса.
+5. При нехватке баланса бот предлагает подписку.
+6. После успешной оплаты продолжается отложенный сценарий (`pending_actions`).
 
 ## Команды пользователя
 - `/start`
@@ -45,7 +50,7 @@
 - `/adstats <метка>`
 - `/adstats_all`
 - `/adtag <метка>`
-- `/genpromo <токены>`
+- `/genpromo <толкования>`
 - `/sub_check <ID>`
 - `/sub_on <ID> <amount>`
 - `/sub_off <ID>`
@@ -57,7 +62,7 @@
 
 Важно:
 - В MAX нет полноценного аналога Telegram `command scope`.
-- Ограничение доступа к админ-командам реализовано в коде.
+- Доступ к админ-командам ограничен в коде.
 
 ## Админы и права
 Настройка в `.env`:
@@ -72,19 +77,17 @@
 ## Ключевые переменные окружения
 - `MAX_BOT_TOKEN` — токен бота MAX.
 - `MAX_USE_WEBHOOK` — `1` для webhook-режима, `0` для polling fallback.
-- `MAX_WEBHOOK_URL` — публичный URL webhook (например `https://bot.example.com/max-webhook-taro`).
+- `MAX_WEBHOOK_URL` — публичный URL webhook.
 - `MAX_WEBHOOK_SECRET` — секрет webhook (`X-Max-Bot-Api-Secret`).
 - `MAX_WEBHOOK_HOST`, `MAX_WEBHOOK_PORT`, `MAX_WEBHOOK_PATH` — локальный listener.
 - `DATABASE_PATH` — путь к SQLite (`/app/data/database.db` в Docker).
-- `MEDIA_TEMP_DIR` — временная папка медиа.
+- `MEDIA_TEMP_DIR` — временная папка.
 - `YOOKASSA_*` — платежи.
 - `SUB_*` — тарифы и лимиты.
-- `REF_BONUS`, `TAROT_SPREAD_COST` — экономика.
+- `REF_BONUS`, `DREAM_INTERPRETATION_COST` — экономика продукта.
+- `DREAM_PROGRESS_STICKER_CODE`, `DREAM_PROGRESS_STICKER_URL`, `DREAM_PROGRESS_TEXT` — прогресс генерации.
 
-Для прогресса генерации:
-- `TAROT_PROGRESS_STICKER_CODE`
-- `TAROT_PROGRESS_STICKER_URL`
-- `TAROT_PROGRESS_TEXT`
+Код сохраняет совместимость с частью старых `TAROT_*` переменных как fallback, но для нового деплоя используйте `DREAM_*`.
 
 ## Локальный запуск
 ```bash
@@ -94,7 +97,12 @@ python main.py
 
 Проверка синтаксиса:
 ```bash
-python -m compileall main.py max_handlers max_keyboards services
+python -m compileall main.py max_handlers max_keyboards services prompts
+```
+
+Проверка текстовой LLM-цепочки:
+```bash
+python tools/test_text_llm.py --dream "Мне приснилось, что я ищу дверь в темном доме" --mode full
 ```
 
 ## Docker
@@ -107,19 +115,15 @@ docker compose logs -f bot
 Webhook-порт публикуется через `MAX_WEBHOOK_PORT` (по умолчанию `8080`).
 
 ## Продакшен
-Папка проекта:
-- `/root/maxtarobot`
-
-Данные вынесены в volume:
-- `/root/maxtarobot/data` -> `/app/data`
-- `/root/maxtarobot/media` -> `/app/media`
+Данные должны быть вынесены в volume:
+- `./data` -> `/app/data`
+- `./media` -> `/app/media`
 
 Проверки:
 ```bash
-cd /root/maxtarobot
 docker compose ps
 docker compose logs --tail=120 bot
-ls -la /root/maxtarobot/data
+ls -la ./data
 ```
 
 ## Важно по стабильности
@@ -129,10 +133,12 @@ ls -la /root/maxtarobot/data
 - один клик пользователя вызывает несколько ответов.
 
 Причина:
-- одновременно работают несколько процессов `python main.py`/контейнеров с тем же токеном.
+- одновременно работают несколько процессов `python main.py` или контейнеров с тем же токеном.
 
-С учетом требований MAX от 11.05.2026 рекомендуется использовать `webhook` вместо `long polling`.
+С учетом требований MAX рекомендуется использовать `webhook` вместо long polling для продакшена.
 
 ## Документы
-- План миграции: `MAX_MIGRATION_PLAN.md`
+- Новый план миграции ниши: `DREAMBOOK_MIGRATION_PLAN.md`
+- История переноса Telegram -> MAX: `MAX_MIGRATION_PLAN.md`
 - Архитектурный регламент: `agents.md`
+- Инструкция по MAX-переносу: `TELEGRAM_TO_MAX_AGENT_GUIDE.md`

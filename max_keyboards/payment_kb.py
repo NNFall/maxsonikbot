@@ -20,7 +20,7 @@ def choose_subscription_attachments(plans: dict[str, object], cb_yoo_prefix: str
         period = week.title.lower() if hasattr(week, "title") else "неделя"
         kb.row(
             CallbackButton(
-                text=f"🔥 {week.price_rub} ₽ / {period} — {week.generations} раскладов",
+                text=f"🔥 {week.price_rub} ₽ / {period} — {week.generations} толкований",
                 payload=f"{cb_yoo_prefix}:{week.id}",
             )
         )
@@ -28,7 +28,7 @@ def choose_subscription_attachments(plans: dict[str, object], cb_yoo_prefix: str
         period = month.title.lower() if hasattr(month, "title") else "месяц"
         kb.row(
             CallbackButton(
-                text=f"⭐ {month.price_rub} ₽ / {period} — {month.generations} раскладов",
+                text=f"⭐ {month.price_rub} ₽ / {period} — {month.generations} толкований",
                 payload=f"{cb_yoo_prefix}:{month.id}",
             )
         )
@@ -54,6 +54,6 @@ def pay_url_attachments(url: str) -> list[Attachment]:
 
 def payment_success_attachments() -> list[Attachment]:
     kb = InlineKeyboardBuilder()
-    kb.row(CallbackButton(text="🔮 Задать вопрос", payload="menu:ask"))
+    kb.row(CallbackButton(text="🌙 Разобрать сон", payload="menu:ask"))
     kb.row(CallbackButton(text="🏠 Главное меню", payload="menu:main"))
     return [kb.as_markup()]

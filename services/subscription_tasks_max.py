@@ -79,7 +79,7 @@ def _build_autorenew_success_text(
     return (
         "🔄 Автосписание - УСПЕХ\n"
         f"User ID: {user_id} ({username})\n"
-        f"Тариф: {plan_id} ({plan_title} - {tokens} токенов)\n"
+        f"Тариф: {plan_id} ({plan_title} - {tokens} толкований)\n"
         f"Сумма: {amount_rub} RUB\n"
         "Status: succeeded\n"
         f"Payment ID: {payment_id or '-'}"
@@ -101,7 +101,7 @@ def _build_autorenew_error_text(
     lines = [
         "🔄 Автосписание - ОШИБКА",
         f"User ID: {user_id} ({username})",
-        f"Тариф: {plan_id} ({plan_title} - {tokens} токенов)",
+        f"Тариф: {plan_id} ({plan_title} - {tokens} толкований)",
         f"Сумма: {amount_rub} RUB",
         f"Status: {status_or_error}",
         f"Payment ID: {payment_id or '-'}",
@@ -132,7 +132,7 @@ async def _schedule_retry_next_day(config, sub: dict) -> datetime:
 
 
 async def _notify_user_expired(bot, user_id: int) -> None:
-    text = "Срок подписки истек. Расклады обнулены."
+    text = "Срок подписки истек. Толкования обнулены."
     try:
         await bot.send_message(user_id=user_id, text=text)
         return
@@ -197,7 +197,7 @@ async def process_due_subscriptions(bot) -> None:
             receipt = None
             if config.yookassa_tax_system_code and (config.yookassa_receipt_email or config.yookassa_receipt_phone):
                 item = {
-                    "description": config.yookassa_item_name or "Подписка на расклады",
+                    "description": config.yookassa_item_name or "Подписка на толкования снов",
                     "quantity": "1.00",
                     "amount": {
                         "value": f"{plan.price_rub:.2f}",

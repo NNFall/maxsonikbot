@@ -60,9 +60,9 @@ async def _send_main_menu(bot, chat_id: int) -> None:
     await bot.send_message(
         chat_id=chat_id,
         text=(
-            "🔮 <b>Таро Магия</b>\n"
-            "Здравствуйте! Я сделаю расклад на 3 карты и дам разбор: текущая ситуация, препятствие и совет.\n"
-            "Задайте вопрос — помогу увидеть направление и подсказки.\n\n"
+            "🌙 <b>Сонник ИИ</b>\n"
+            "Здравствуйте! Опишите, что вам приснилось, а я разберу значение сна: символы, возможные знаки, "
+            "предупреждения, эмоциональный смысл и практический совет.\n\n"
             "Выберите раздел ниже 👇"
         ),
         attachments=main_menu_attachments(),
@@ -100,7 +100,7 @@ async def _process_start(event: MessageCreated | BotStarted, payload: str | None
             await crud.update_balance(config.database_path, uid, credits)
             await event.bot.send_message(
                 chat_id=chat_id,
-                text=f"🎁 Промокод активирован. Начислено {credits} раскладов.",
+                text=f"🎁 Промокод активирован. Начислено {credits} толкований.",
             )
         else:
             await event.bot.send_message(
@@ -161,10 +161,10 @@ async def cmd_help(event: MessageCreated) -> None:
         chat_id=chat_id,
         text=(
             "❓ <b>Помощь</b>\n"
-            "1) Нажмите «Задать вопрос»\n"
-            "2) Введите ваш вопрос\n"
-            "3) Получите первую карту и разбор\n"
-            "4) Откройте полный расклад"
+            "1) Нажмите «Разобрать сон»\n"
+            "2) Опишите сон одним сообщением\n"
+            "3) Получите короткое пробное толкование или полный разбор\n"
+            "4) При необходимости оформите подписку"
         ),
         attachments=help_attachments(config.support_contact),
     )
@@ -184,7 +184,7 @@ async def _send_invite(event: MessageCreated | MessageCallback) -> None:
         text=(
             "🤝 <b>Пригласить друга</b>\n"
             "Отправьте другу персональную ссылку.\n"
-            f"Бонус: <b>{config.ref_bonus}</b> раскладов после первой покупки друга.\n\n"
+            f"Бонус: <b>{config.ref_bonus}</b> толкований после первой покупки друга.\n\n"
             f"Ваша ссылка:\n<code>{deeplink}</code>"
         ),
         attachments=menu_only_attachments(),
@@ -218,10 +218,10 @@ async def cb_help(event: MessageCallback) -> None:
         chat_id=chat_id,
         text=(
             "❓ <b>Помощь</b>\n"
-            "1) Нажмите «Задать вопрос»\n"
-            "2) Введите ваш вопрос\n"
-            "3) Получите первую карту и разбор\n"
-            "4) Откройте полный расклад"
+            "1) Нажмите «Разобрать сон»\n"
+            "2) Опишите сон одним сообщением\n"
+            "3) Получите короткое пробное толкование или полный разбор\n"
+            "4) При необходимости оформите подписку"
         ),
         attachments=help_attachments(config.support_contact),
     )
