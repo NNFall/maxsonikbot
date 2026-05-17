@@ -12,7 +12,11 @@ def choose_subscription_prompt_attachments() -> list[Attachment]:
     return [kb.as_markup()]
 
 
-def choose_subscription_attachments(plans: dict[str, object], cb_yoo_prefix: str = "sub:choose:yoo") -> list[Attachment]:
+def choose_subscription_attachments(
+    plans: dict[str, object],
+    cb_yoo_prefix: str = "sub:choose:yoo",
+    include_back: bool = True,
+) -> list[Attachment]:
     kb = InlineKeyboardBuilder()
     week = plans.get("week")
     month = plans.get("month")
@@ -32,7 +36,8 @@ def choose_subscription_attachments(plans: dict[str, object], cb_yoo_prefix: str
                 payload=f"{cb_yoo_prefix}:{month.id}",
             )
         )
-    kb.row(CallbackButton(text="⬅️ Назад", payload="menu:balance"))
+    if include_back:
+        kb.row(CallbackButton(text="⬅️ Назад", payload="menu:balance"))
     return [kb.as_markup()]
 
 

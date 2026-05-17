@@ -13,11 +13,10 @@ from config import load_config
 from database import crud
 from max_handlers.states import DreamState
 from max_keyboards import (
-    choose_subscription_prompt_attachments,
+    choose_subscription_attachments,
     dream_after_interpretation_attachments,
     dream_open_full_attachments,
 )
-from prompts.dream_prompts import paywall_text
 from services.dream_context import get_context
 from services.dream_reading_max import (
     run_dream_followup,
@@ -113,19 +112,11 @@ def _is_followup_message(text: str | None) -> bool:
     return any(phrase in normalized for phrase in FOLLOWUP_PHRASES)
 
 
-def _build_inactive_balance_text(balance: int) -> str:
-    plans = get_plans()
-    week = plans.get("week")
-    month = plans.get("month")
-    week_period = week.title.lower() if week else "неделя"
-    month_period = month.title.lower() if month else "месяц"
-    return (
-        "⚠️ <b>Недостаточно толкований.</b>\n"
-        f"🌙 Доступно: <b>{balance}</b>\n\n"
-        "<b>Подписка</b>\n"
-        f"🔥 {week.price_rub} ₽ / {week_period} — {week.generations} толкований\n"
-        f"⭐ {month.price_rub} ₽ / {month_period} — {month.generations} толкований\n\n"
-        f"Переходя к оплате, вы соглашаетесь с <a href=\"{config.offer_url}\">офертой</a>."
+async def _send_subscription_choice(bot, chat_id: int) -> None:
+    await bot.send_message(
+        chat_id=chat_id,
+        text="Выберите подписку 👇",
+        attachments=choose_subscription_attachments(get_plans(), include_back=False),
     )
 
 
@@ -201,11 +192,7 @@ async def _process_dream(event: MessageCreated, context: BaseContext) -> None:
 
     if balance < cost:
         await context.update_data(pending_action=json.dumps(pending_payload))
-        await event.bot.send_message(
-            chat_id=chat_id,
-            text=_build_inactive_balance_text(balance),
-            attachments=choose_subscription_prompt_attachments(),
-        )
+        await _send_subscription_choice(event.bot, chat_id)
         return
 
     ok = await run_paid_dream_interpretation(
@@ -259,11 +246,7 @@ async def _open_full_from_pending(event: MessageCallback, context: BaseContext) 
     balance = await crud.get_balance(config.database_path, uid)
     if balance < config.dream_interpretation_cost:
         await event.answer()
-        await event.bot.send_message(
-            chat_id=chat_id,
-            text=f"{paywall_text()}\n\n{_build_inactive_balance_text(balance)}",
-            attachments=choose_subscription_prompt_attachments(),
-        )
+        await _send_subscription_choice(event.bot, chat_id)
         return
 
     await event.answer()
