@@ -162,7 +162,7 @@ def load_config() -> Config:
         sub_month_generations=int(_get_env('SUB_MONTH_GENERATIONS', '100') or '100'),
         sub_month_days=int(_get_env('SUB_MONTH_DAYS', '30') or '30'),
         support_contact=_get_env('SUPPORT_CONTACT', 'https://max.ru/u/f9LHodD0cOL1NLfuFBoMvvVMSgRmsLKspQSSM1d9_6ZR68W1oT3zfN20xA8') or 'https://max.ru/u/f9LHodD0cOL1NLfuFBoMvvVMSgRmsLKspQSSM1d9_6ZR68W1oT3zfN20xA8',
-        offer_url=_get_env('OFFER_URL', 'https://example.com/oferta') or 'https://example.com/oferta',
+        offer_url=_get_env('OFFER_URL', 'https://dimonk95.github.io/sonnikmax/') or 'https://dimonk95.github.io/sonnikmax/',
         max_use_webhook=_get_bool_env('MAX_USE_WEBHOOK', False),
         max_webhook_url=_get_env('MAX_WEBHOOK_URL', '') or '',
         max_webhook_secret=_get_env('MAX_WEBHOOK_SECRET', '') or '',
