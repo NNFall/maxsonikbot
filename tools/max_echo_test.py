@@ -12,6 +12,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Simple MAX echo bot for connectivity testing.")
     parser.add_argument("--token", default=None, help="MAX bot token. If omitted, uses MAX_BOT_TOKEN env var.")
     parser.add_argument(
+        "--api-url",
+        default=None,
+        help="MAX API URL. If omitted, uses MAX_API_URL env var or maxapi default.",
+    )
+    parser.add_argument(
         "--run-seconds",
         type=int,
         default=0,
@@ -20,8 +25,10 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-async def run_echo(token: str, run_seconds: int = 0) -> None:
+async def run_echo(token: str, run_seconds: int = 0, api_url: str | None = None) -> None:
     bot = Bot(token=token)
+    if api_url:
+        bot.set_api_url(api_url)
     dp = Dispatcher()
 
     me = await bot.get_me()
@@ -62,7 +69,8 @@ def main() -> None:
     token = args.token or os.getenv("MAX_BOT_TOKEN")
     if not token:
         raise RuntimeError("MAX token is empty. Pass --token or set MAX_BOT_TOKEN.")
-    asyncio.run(run_echo(token, args.run_seconds))
+    api_url = args.api_url or os.getenv("MAX_API_URL")
+    asyncio.run(run_echo(token, args.run_seconds, api_url))
 
 
 if __name__ == "__main__":

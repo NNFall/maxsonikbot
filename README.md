@@ -76,6 +76,7 @@
 
 ## Ключевые переменные окружения
 - `MAX_BOT_TOKEN` — токен бота MAX.
+- `MAX_API_URL` — адрес MAX Bot API, по умолчанию `https://platform-api2.max.ru`.
 - `MAX_USE_WEBHOOK` — `1` для webhook-режима, `0` для polling fallback.
 - `MAX_WEBHOOK_URL` — публичный URL webhook.
 - `MAX_WEBHOOK_SECRET` — секрет webhook (`X-Max-Bot-Api-Secret`).
@@ -113,6 +114,12 @@ docker compose logs -f bot
 ```
 
 Webhook-порт публикуется через `MAX_WEBHOOK_PORT` (по умолчанию `8080`).
+
+В Docker-образ добавлены доверенные сертификаты Минцифры для `platform-api2.max.ru`:
+- `certs/russian_trusted_root_ca.crt`;
+- `certs/russian_trusted_sub_ca_ssl_rsa2024.crt`.
+
+При сборке они копируются в `/usr/local/share/ca-certificates/` и применяются через `update-ca-certificates`.
 
 ## Продакшен
 Данные должны быть вынесены в volume:

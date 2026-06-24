@@ -143,6 +143,15 @@
 - Кнопка ведет внешней ссылкой на `https://max.ru/id644009650098_bot?start=sonik`.
 - Основная кнопка `🌙 Разобрать сон` и все платежные/админские сценарии не менялись.
 
+### Этап 12. Переход MAX API на platform-api2 — завершен
+- Добавлена переменная `MAX_API_URL` с дефолтом `https://platform-api2.max.ru`.
+- После создания `Bot(...)` вызывается `bot.set_api_url(config.max_api_url)`.
+- В Docker-образ добавлены доверенные сертификаты Минцифры:
+  - `certs/russian_trusted_root_ca.crt`;
+  - `certs/russian_trusted_sub_ca_ssl_rsa2024.crt`.
+- `Dockerfile` устанавливает `ca-certificates`, копирует сертификаты в trust store и выполняет `update-ca-certificates`.
+- Для Python-запросов установлены `SSL_CERT_FILE` и `REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt`.
+
 ## Риски
 
 - Реальная проверка YooKassa требует тестовой или боевой оплаты. Код оплат и подписок не ломался, но сценарий начисления после оплаты нужно пройти вручную в MAX.

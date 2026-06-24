@@ -28,6 +28,7 @@ def _product_item_name(raw: str | None) -> str:
 class Config:
     bot_token: str
     max_bot_token: str
+    max_api_url: str
     kie_api_key: str
     kie_base_url: str
     kie_api_url: str
@@ -103,6 +104,7 @@ def load_config() -> Config:
     return Config(
         bot_token=_get_env('BOT_TOKEN', '') or '',
         max_bot_token=_get_env('MAX_BOT_TOKEN', '') or '',
+        max_api_url=_get_env('MAX_API_URL', 'https://platform-api2.max.ru') or 'https://platform-api2.max.ru',
         kie_api_key=_get_env('KIE_API_KEY', '') or '',
         kie_base_url=_get_env('KIE_BASE_URL', 'https://api.kie.ai') or 'https://api.kie.ai',
         kie_api_url=_get_env('KIE_API_URL', 'https://api.kie.ai/api/v1/jobs/createTask') or '',

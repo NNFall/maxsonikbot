@@ -45,6 +45,8 @@ async def main() -> None:
     await setup_db(config.database_path)
 
     bot = Bot(token=token, format=ParseMode.HTML)
+    bot.set_api_url(config.max_api_url)
+    logger.info("MAX API URL: %s", config.max_api_url)
     dp = Dispatcher()
     dp.include_routers(*all_routers)
 
