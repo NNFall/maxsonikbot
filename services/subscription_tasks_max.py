@@ -148,9 +148,13 @@ async def process_due_subscriptions(bot) -> None:
     config = load_config()
     now_iso = datetime.utcnow().isoformat(timespec="seconds")
 
+    cleaned = await crud.cleanup_inconsistent_subscriptions(config.database_path)
+    if cleaned:
+        logger.warning("Subscription cleanup fixed inconsistent rows: %s", cleaned)
+
     expired = await crud.list_expired_subscriptions(config.database_path, now_iso)
     for sub in expired:
-        await crud.mark_subscription_status(config.database_path, sub["user_id"], "expired")
+        await crud.expire_subscription(config.database_path, sub["user_id"])
         await crud.set_balance(config.database_path, sub["user_id"], 0)
         await _notify_user_expired(bot, int(sub["user_id"]))
 

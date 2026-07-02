@@ -106,7 +106,7 @@ async def _expire_if_needed(user_id: int) -> None:
     except Exception:
         return
     if datetime.utcnow() >= end:
-        await crud.mark_subscription_status(config.database_path, user_id, "expired")
+        await crud.expire_subscription(config.database_path, user_id)
         await crud.set_balance(config.database_path, user_id, 0)
 
 

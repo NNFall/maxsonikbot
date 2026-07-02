@@ -152,6 +152,14 @@
 - `Dockerfile` устанавливает `ca-certificates`, копирует сертификаты в trust store и выполняет `update-ca-certificates`.
 - Для Python-запросов установлены `SSL_CERT_FILE` и `REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt`.
 
+### Этап 13. Защита от рассинхрона подписок — завершен
+- Проверена production-БД на состояние `status != active AND auto_renew = 1`: найдено 0 строк.
+- Найдены и очищены 5 старых строк `inactive/expired` с сохраненным `payment_method_id`.
+- `cancel_subscription` теперь одновременно ставит `auto_renew = 0` и очищает `payment_method_id`.
+- Перевод подписки в `inactive` или `expired` через `mark_subscription_status` теперь также очищает `auto_renew` и `payment_method_id`.
+- В watcher добавлена санитарная чистка `cleanup_inconsistent_subscriptions`, чтобы старые рассинхроны исправлялись автоматически.
+- Истечение подписки в `payments._expire_if_needed` и `subscription_tasks_max.process_due_subscriptions` теперь проходит через `expire_subscription`.
+
 ## Риски
 
 - Реальная проверка YooKassa требует тестовой или боевой оплаты. Код оплат и подписок не ломался, но сценарий начисления после оплаты нужно пройти вручную в MAX.

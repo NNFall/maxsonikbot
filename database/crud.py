@@ -460,7 +460,7 @@ async def get_subscription(db_path: str, user_id: int) -> dict[str, Any] | None:
 async def cancel_subscription(db_path: str, user_id: int) -> None:
     async with aiosqlite.connect(db_path) as db:
         await db.execute(
-            'UPDATE subscriptions SET auto_renew = 0, status = ?, updated_at = ? WHERE user_id = ?',
+            'UPDATE subscriptions SET auto_renew = 0, payment_method_id = NULL, status = ?, updated_at = ? WHERE user_id = ?',
             ('inactive', _utcnow(), user_id),
         )
         await db.commit()
@@ -607,8 +607,36 @@ async def count_active_subscriptions_by_plan(db_path: str, now_iso: str) -> dict
 
 async def mark_subscription_status(db_path: str, user_id: int, status: str) -> None:
     async with aiosqlite.connect(db_path) as db:
-        await db.execute('UPDATE subscriptions SET status = ?, updated_at = ? WHERE user_id = ?', (status, _utcnow(), user_id))
+        if status in {"inactive", "expired"}:
+            await db.execute(
+                '''
+                UPDATE subscriptions
+                SET status = ?, auto_renew = 0, payment_method_id = NULL, updated_at = ?
+                WHERE user_id = ?
+                ''',
+                (status, _utcnow(), user_id),
+            )
+        else:
+            await db.execute(
+                'UPDATE subscriptions SET status = ?, updated_at = ? WHERE user_id = ?',
+                (status, _utcnow(), user_id),
+            )
         await db.commit()
+
+
+async def cleanup_inconsistent_subscriptions(db_path: str) -> int:
+    async with aiosqlite.connect(db_path) as db:
+        cur = await db.execute(
+            '''
+            UPDATE subscriptions
+            SET auto_renew = 0, payment_method_id = NULL, updated_at = ?
+            WHERE status IN ('inactive', 'expired')
+              AND (auto_renew != 0 OR payment_method_id IS NOT NULL)
+            ''',
+            (_utcnow(),),
+        )
+        await db.commit()
+        return int(cur.rowcount or 0)
 
 
 async def list_utm_stats(db_path: str) -> list[dict[str, Any]]:
